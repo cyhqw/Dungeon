@@ -34,69 +34,89 @@
 
         <div class="battle-tutorial-hero">
           <div class="battle-tutorial-board">
-            <div class="battle-tutorial-enemy">
-              <div class="tutorial-status-panel tutorial-status-panel--enemy">
-                <div class="tutorial-status-name">敌方</div>
-                <div class="tutorial-meter-row">
-                  <span>HP</span>
-                  <div class="tutorial-meter"><i style="width: 72%"></i></div>
-                  <strong>42/58</strong>
-                </div>
-                <div class="tutorial-meter-row">
-                  <span>MP</span>
-                  <div class="tutorial-meter tutorial-meter--mp"><i style="width: 45%"></i></div>
-                  <strong>4</strong>
-                </div>
-                <div class="tutorial-stat-line"><span>骰子</span><strong>2 ~ 8</strong></div>
-                <div class="tutorial-status-icons">
-                  <span class="tutorial-effect-chip tutorial-effect-chip--small">护甲 6</span>
-                  <span class="tutorial-effect-chip tutorial-effect-chip--small">寒冷 3</span>
-                </div>
+            <div class="tutorial-top-turn">
+              <span>回合</span>
+              <strong>1</strong>
+            </div>
+
+            <div class="tutorial-character tutorial-character--player">
+              <div class="tutorial-character-portrait">我方</div>
+            </div>
+
+            <div class="tutorial-character tutorial-character--enemy">
+              <div class="tutorial-character-portrait">敌方</div>
+            </div>
+
+            <div class="battle-tutorial-intent-card tutorial-intent-card--center">
+              <div class="mock-card-cost">1</div>
+              <div class="mock-card-name">敌方意图</div>
+              <div class="mock-card-line"></div>
+              <div class="mock-card-desc">预告下一步行动</div>
+            </div>
+
+            <div class="mock-dice mock-dice--yellow tutorial-dice-player"><span>2</span></div>
+            <div class="mock-dice mock-dice--red tutorial-dice-enemy"><span>11</span></div>
+
+            <div class="tutorial-status-panel tutorial-status-panel--player">
+              <div class="tutorial-status-name">冒险者</div>
+              <div class="tutorial-armor-line">
+                <i class="fa-solid fa-shield"></i>
+                <strong>16</strong>
               </div>
-              <div class="battle-tutorial-intent-card">
-                <div class="mock-card-cost">3</div>
-                <div class="mock-card-name">敌方意图</div>
-                <div class="mock-card-line"></div>
-                <div class="mock-card-desc">下回合准备造成伤害</div>
+              <div class="tutorial-meter-row">
+                <span>HP</span>
+                <div class="tutorial-meter"><i style="width: 100%"></i></div>
+                <strong>34/34</strong>
+              </div>
+              <div class="tutorial-meter-row">
+                <span>MP</span>
+                <div class="tutorial-meter tutorial-meter--mp"><i style="width: 35%"></i></div>
+                <strong>3</strong>
+              </div>
+              <div class="tutorial-stat-line"><span><i class="fa-solid fa-dice"></i></span><strong>1 ~ 8</strong></div>
+              <div class="tutorial-status-icons">
+                <span class="tutorial-effect-dot tutorial-effect-dot--cold" title="普通状态"></span>
+                <span class="tutorial-effect-dot tutorial-effect-dot--buff" title="普通状态"></span>
               </div>
             </div>
-            <div class="battle-tutorial-center">
-              <div class="mock-dice mock-dice--red"><span>6</span></div>
-              <div class="mock-versus">VS</div>
-              <div class="mock-dice mock-dice--blue"><span>4</span></div>
-            </div>
-            <div class="battle-tutorial-player">
-              <div class="tutorial-status-panel tutorial-status-panel--player">
-                <div class="tutorial-status-name">我方</div>
-                <div class="tutorial-meter-row">
-                  <span>HP</span>
-                  <div class="tutorial-meter"><i style="width: 83%"></i></div>
-                  <strong>34/41</strong>
-                </div>
-                <div class="tutorial-meter-row">
-                  <span>MP</span>
-                  <div class="tutorial-meter tutorial-meter--mp"><i style="width: 55%"></i></div>
-                  <strong>5</strong>
-                </div>
-                <div class="tutorial-stat-line"><span>骰子</span><strong>1 ~ 8</strong></div>
-              </div>
-              <div class="battle-tutorial-hand">
-                <div class="mock-mini-card mock-mini-card--attack">攻击</div>
-                <div class="mock-mini-card mock-mini-card--magic">魔法</div>
-                <div class="mock-mini-card mock-mini-card--skill">功能</div>
-                <div class="mock-mini-card mock-mini-card--dodge">闪避</div>
-              </div>
-              <div class="tutorial-active-slot">
+
+            <div class="tutorial-active-row">
+              <div class="tutorial-active-slot tutorial-active-slot--compact">
                 <div class="tutorial-active-cost">2</div>
                 <div class="tutorial-active-badge">主动</div>
-                <div class="tutorial-active-name">重掷</div>
-                <div class="tutorial-active-cd">CD 2 · 可用</div>
+                <div class="tutorial-active-name">主动技</div>
+                <div class="tutorial-active-cd">CD 3 · 可用</div>
+              </div>
+            </div>
+
+            <div class="battle-tutorial-hand">
+              <div class="mock-mini-card mock-mini-card--dodge">闪避</div>
+              <div class="mock-mini-card mock-mini-card--skill">功能</div>
+              <div class="mock-mini-card mock-mini-card--dodge">闪避</div>
+            </div>
+
+            <div class="tutorial-status-panel tutorial-status-panel--enemy">
+              <div class="tutorial-status-name">赛琳娜</div>
+              <div class="tutorial-meter-row">
+                <span>HP</span>
+                <div class="tutorial-meter"><i style="width: 100%"></i></div>
+                <strong>380/380</strong>
+              </div>
+              <div class="tutorial-meter-row">
+                <span>MP</span>
+                <div class="tutorial-meter tutorial-meter--mp"><i style="width: 10%"></i></div>
+                <strong>1</strong>
+              </div>
+              <div class="tutorial-stat-line"><span><i class="fa-solid fa-dice"></i></span><strong>7 ~ 11</strong></div>
+              <div class="tutorial-status-icons">
+                <span class="tutorial-effect-dot tutorial-effect-dot--debuff" title="普通状态"></span>
+                <span class="tutorial-effect-dot tutorial-effect-dot--poison" title="普通状态"></span>
               </div>
             </div>
           </div>
           <div class="battle-tutorial-hero-copy">
             <div class="battle-tutorial-hero-title">战斗界面先读三块。</div>
-            <p>上方看回合、疲劳与点数预览；敌人旁看意图和敌方状态栏；下方看手牌、主动技能、自己的生命/魔力/骰子范围。</p>
+            <p>上方看回合与敌方意图；中央看双方骰子；左下看自己的状态栏与主动技能；底部看手牌；右下看敌方状态栏。</p>
             <p>每回合的核心问题是：敌人接下来要做什么？我这张牌的最终点数是多少？结算后我能不能活到下回合？</p>
           </div>
         </div>
@@ -217,6 +237,12 @@
           <article class="battle-tutorial-card battle-tutorial-card--wide">
             <div class="battle-tutorial-card-visual status-reference-board">
               <div class="tutorial-status-panel tutorial-status-panel--wide">
+                <div class="tutorial-status-name">冒险者</div>
+                <div class="tutorial-armor-line tutorial-armor-line--reference">
+                  <i class="fa-solid fa-shield"></i>
+                  <strong>16</strong>
+                  <span>护甲显示在血条上方</span>
+                </div>
                 <div v-for="metric in statusMetrics" :key="metric.label" class="status-metric-row">
                   <span class="status-metric-label">{{ metric.label }}</span>
                   <strong>{{ metric.value }}</strong>
@@ -363,7 +389,6 @@ const statusMetrics = [
   { label: 'HP', value: '34/41', desc: '生命，归零战败。' },
   { label: 'MP', value: '5', desc: '魔力，支付魔法牌和主动技能。' },
   { label: '骰子', value: '1 ~ 8', desc: '本方原始点数的随机范围。' },
-  { label: '护甲', value: '6', desc: '抵挡伤害，通常会衰减。' },
   { label: '状态', value: '图标+层数', desc: '影响点数、伤害、行动或回合结算。' },
 ];
 
@@ -417,7 +442,7 @@ const unlockedEffectEntries = computed(() => (
     })
 ));
 
-const tutorialEffectNames = ['护甲', '寒冷', '燃烧', '中毒', '易伤', '虚弱'];
+const tutorialEffectNames = ['寒冷', '燃烧', '中毒', '易伤', '虚弱', '流血'];
 const tutorialEffects = computed(() => tutorialEffectNames
   .map((name) => {
     const entry = Object.values(EFFECT_REGISTRY).find(effect => effect.name === name);
@@ -629,25 +654,148 @@ watch(
 
 .battle-tutorial-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.28fr) minmax(14rem, 0.72fr);
-  gap: 0.85rem;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
   align-items: stretch;
   margin-bottom: 0.85rem;
 }
 
 .battle-tutorial-board {
-  min-height: 15rem;
+  min-height: 18.5rem;
+  position: relative;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0.5rem;
   background:
-    linear-gradient(180deg, rgba(18, 20, 28, 0.92), rgba(8, 8, 13, 0.92)),
-    radial-gradient(circle at 72% 24%, rgba(127, 29, 29, 0.32), transparent 34%),
-    radial-gradient(circle at 22% 82%, rgba(30, 64, 175, 0.28), transparent 36%);
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 0.8rem;
-  padding: 1rem;
+    linear-gradient(180deg, rgba(17, 17, 26, 0.88), rgba(3, 6, 13, 0.94)),
+    radial-gradient(circle at 54% 10%, rgba(107, 33, 168, 0.28), transparent 28%),
+    radial-gradient(circle at 20% 34%, rgba(146, 64, 14, 0.22), transparent 24%),
+    radial-gradient(circle at 77% 45%, rgba(88, 28, 135, 0.34), transparent 30%);
+  display: block;
   overflow: hidden;
+}
+
+.tutorial-top-turn {
+  position: absolute;
+  left: 50%;
+  top: 0.35rem;
+  z-index: 3;
+  display: flex;
+  min-width: 3.5rem;
+  transform: translateX(-50%);
+  flex-direction: column;
+  align-items: center;
+  color: rgba(255, 247, 237, 0.86);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+.tutorial-top-turn span {
+  font-size: 0.72rem;
+}
+
+.tutorial-top-turn strong {
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+.tutorial-character {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 247, 237, 0.64);
+  font-size: 1rem;
+  font-weight: 800;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.tutorial-character--player {
+  left: 4.5rem;
+  top: 4.8rem;
+  width: 9rem;
+  height: 9.6rem;
+  border-radius: 45% 45% 26% 26%;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(245, 158, 11, 0.38), transparent 25%),
+    linear-gradient(160deg, rgba(120, 53, 15, 0.7), rgba(20, 22, 28, 0.28));
+}
+
+.tutorial-character--enemy {
+  right: 4.2rem;
+  top: 3.5rem;
+  width: 10.5rem;
+  height: 11.8rem;
+  border-radius: 48% 48% 34% 34%;
+  background:
+    radial-gradient(circle at 58% 30%, rgba(168, 85, 247, 0.46), transparent 28%),
+    linear-gradient(150deg, rgba(88, 28, 135, 0.62), rgba(12, 10, 20, 0.22));
+}
+
+.tutorial-character-portrait {
+  width: 48%;
+  height: 30%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.tutorial-intent-card--center {
+  position: absolute;
+  left: 50%;
+  top: 3.7rem;
+  z-index: 4;
+  transform: translateX(-50%);
+  width: 7.4rem;
+}
+
+.tutorial-dice-player {
+  position: absolute;
+  left: 25%;
+  top: 43%;
+  z-index: 4;
+}
+
+.tutorial-dice-enemy {
+  position: absolute;
+  right: 30%;
+  top: 48%;
+  z-index: 4;
+}
+
+.battle-tutorial-board > .tutorial-status-panel--player {
+  position: absolute;
+  left: 1rem;
+  bottom: 5.15rem;
+  z-index: 5;
+  width: 12.6rem;
+}
+
+.battle-tutorial-board > .tutorial-status-panel--enemy {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 5;
+  width: 13.7rem;
+}
+
+.tutorial-active-row {
+  position: absolute;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 6;
+  display: flex;
+  gap: 0.45rem;
+}
+
+.battle-tutorial-board > .battle-tutorial-hand {
+  position: absolute;
+  left: 50%;
+  bottom: 0.85rem;
+  z-index: 5;
+  transform: translateX(-50%);
 }
 
 .battle-tutorial-enemy,
@@ -683,6 +831,36 @@ watch(
   color: rgba(255, 247, 237, 0.92);
   font-size: 0.74rem;
   font-weight: 800;
+}
+
+.tutorial-armor-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  margin-bottom: 0.38rem;
+  color: rgba(191, 219, 254, 0.95);
+  font-size: 0.68rem;
+}
+
+.tutorial-armor-line i {
+  color: rgba(96, 165, 250, 0.98);
+  filter: drop-shadow(0 0 5px rgba(96, 165, 250, 0.35));
+}
+
+.tutorial-armor-line strong {
+  color: rgba(250, 204, 21, 0.96);
+  font-size: 0.72rem;
+}
+
+.tutorial-armor-line--reference {
+  width: 100%;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 0.38rem;
+}
+
+.tutorial-armor-line--reference span {
+  color: rgba(255, 237, 213, 0.62);
+  font-size: 0.64rem;
 }
 
 .tutorial-meter-row,
@@ -740,6 +918,31 @@ watch(
   flex-wrap: wrap;
   gap: 0.3rem;
   margin-top: 0.45rem;
+}
+
+.tutorial-effect-dot {
+  display: inline-flex;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 0.35rem;
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.tutorial-effect-dot--cold {
+  background: linear-gradient(145deg, rgba(14, 165, 233, 0.72), rgba(15, 23, 42, 0.82));
+}
+
+.tutorial-effect-dot--buff {
+  background: linear-gradient(145deg, rgba(34, 197, 94, 0.68), rgba(15, 23, 42, 0.82));
+}
+
+.tutorial-effect-dot--debuff {
+  background: linear-gradient(145deg, rgba(148, 163, 184, 0.58), rgba(15, 23, 42, 0.82));
+}
+
+.tutorial-effect-dot--poison {
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.72), rgba(15, 23, 42, 0.82));
 }
 
 .battle-tutorial-enemy {
@@ -858,6 +1061,11 @@ watch(
 
 .mock-dice--blue {
   background: linear-gradient(145deg, rgba(30, 64, 175, 0.95), rgba(14, 165, 233, 0.72));
+}
+
+.mock-dice--yellow {
+  background: linear-gradient(145deg, rgba(161, 98, 7, 0.95), rgba(250, 204, 21, 0.82));
+  color: rgba(63, 35, 5, 0.98);
 }
 
 .mock-dice {
@@ -1247,6 +1455,22 @@ watch(
   min-height: 8.8rem;
 }
 
+.tutorial-active-slot--compact {
+  width: 5.6rem;
+  min-height: 6.4rem;
+  padding: 0.42rem;
+}
+
+.tutorial-active-slot--compact .tutorial-active-name {
+  margin-top: 0.72rem;
+  font-size: 0.72rem;
+}
+
+.tutorial-active-slot--compact .tutorial-active-cd {
+  margin-top: 1rem;
+  font-size: 0.58rem;
+}
+
 .tutorial-active-cost {
   display: inline-flex;
   width: 1.45rem;
@@ -1348,7 +1572,8 @@ watch(
   }
 
   .battle-tutorial-board {
-    grid-template-columns: 1fr;
+    min-height: 47rem;
+    aspect-ratio: auto;
   }
 
   .battle-tutorial-enemy,
@@ -1362,6 +1587,56 @@ watch(
 
   .status-metric-row {
     grid-template-columns: 2.7rem 3.8rem minmax(0, 1fr);
+  }
+
+  .tutorial-character {
+    display: none;
+  }
+
+  .tutorial-intent-card--center {
+    left: 50%;
+    top: 3.6rem;
+  }
+
+  .tutorial-dice-player {
+    left: 24%;
+    top: 13rem;
+  }
+
+  .tutorial-dice-enemy {
+    right: 24%;
+    top: 13rem;
+  }
+
+  .battle-tutorial-board > .tutorial-status-panel--player {
+    left: 1rem;
+    top: 17rem;
+    bottom: auto;
+    width: calc(100% - 2rem);
+  }
+
+  .tutorial-active-row {
+    left: 1rem;
+    top: 28.7rem;
+    bottom: auto;
+  }
+
+  .battle-tutorial-board > .battle-tutorial-hand {
+    left: 50%;
+    top: 36.1rem;
+    bottom: auto;
+    transform: translateX(-50%);
+  }
+
+  .battle-tutorial-board > .tutorial-status-panel--enemy {
+    left: 1rem;
+    right: auto;
+    bottom: 1rem;
+    width: calc(100% - 2rem);
+  }
+
+  .tutorial-right-actions {
+    display: none;
   }
 }
 </style>
