@@ -1308,9 +1308,9 @@ const 逆刃: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.STURDY, target: 'self', valueMode: 'point_scale', scale: 1.0 },
+    { kind: 'apply_buff', effectType: EffectType.STURDY, target: 'self', valueMode: 'point_scale', scale: 1.0, durationTurns: 1 },
   ],
-  description: '自身获得1倍点数的坚固，本回合被击中时施加对方4层流血',
+  description: '自身获得1倍点数的坚固（持续1回合），本回合被击中时施加对方4层流血',
 };
 
 /** 血筑：增加临时生命上限并按已损失生命获得护甲（护甲逻辑在 CombatView） */
@@ -6754,9 +6754,9 @@ const 法力涌动: CardData = {
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
     { kind: 'restore_mana', target: 'self', valueMode: 'point_scale', scale: 1.0 },
-    { kind: 'apply_buff', effectType: EffectType.STURDY, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.STURDY, target: 'self', valueMode: 'fixed', fixedValue: 2, durationTurns: 1 },
   ],
-  description: '回复1倍点数的魔力，获得2层坚固',
+  description: '回复1倍点数的魔力，获得2层坚固（持续1回合）',
 };
 
 /** 蓄力：点数+1，获得1倍点数的蓄力 */
