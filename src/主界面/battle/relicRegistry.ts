@@ -814,6 +814,28 @@ const RELIC_LIST: readonly RelicData[] = [
     description: '每回合开始时，若你拥有燃烧，则失去1点生命并回复1点魔力。',
   },
   {
+    id: 'burn_flame_core',
+    name: '炎核',
+    rarity: '稀有',
+    category: '燃烧',
+    effect: '使用物理卡牌命中时，施加1层燃烧，每场战斗最多触发5次',
+    description: '使用物理卡牌命中时，施加1层燃烧，每场战斗最多触发5次。',
+    hooks: {
+      onBattleStart: ({ state }) => {
+        state['triggeredThisCombat'] = 0;
+      },
+      onAfterHitDealt: ({ side, targetSide, card, actualDamage, state, addStatusEffect, addLog }) => {
+        if (targetSide === side || card.type !== CardType.PHYSICAL || actualDamage <= 0) return;
+        const triggered = Math.max(0, Math.floor(Number(state['triggeredThisCombat'] ?? 0)));
+        if (triggered >= 5) return;
+        state['triggeredThisCombat'] = triggered + 1;
+        if (addStatusEffect(targetSide, EffectType.BURN, 1, { source: 'relic:burn_flame_core' })) {
+          addLog(`[炎核] 物理命中，施加1层燃烧（${triggered + 1}/5）。`);
+        }
+      },
+    },
+  },
+  {
     id: 'everlasting_fuel',
     name: '不灭薪柴',
     rarity: '传奇',
@@ -1344,6 +1366,33 @@ const RELIC_LIST: readonly RelicData[] = [
     category: '严寒',
     effect: '若本回合没有受到伤害，施加1层寒冷与疲劳',
     description: '若本回合没有受到伤害，施加1层寒冷与疲劳。',
+  },
+  {
+    id: 'yanhan_micro_floating_cannon',
+    name: '微型悬浮炮',
+    rarity: '稀有',
+    category: '严寒',
+    effect: '敌人受到法术伤害时额外受到一次1点伤害，每回合限1次',
+    description: '敌人受到法术伤害时会额外受到一次1点伤害，每回合限1次。',
+  },
+  {
+    id: 'yanhan_ghost_lamp',
+    name: '幽灯',
+    rarity: '稀有',
+    category: '严寒',
+    effect: '对方每有4层寒冷，受到的法术伤害+1，上限+5',
+    description: '对方每有4层寒冷，受到的法术伤害+1，上限+5。',
+    hooks: {
+      onBeforeDirectDamage: ctx => {
+        if (ctx.sourceSide !== ctx.side || ctx.targetSide === ctx.side || ctx.card?.type !== CardType.MAGIC || ctx.damage <= 0) return;
+        const coldStacks = getStacks(ctx.target, EffectType.COLD);
+        const bonusPerRelic = Math.min(5, Math.floor(coldStacks / 4));
+        const bonus = bonusPerRelic * Math.max(1, Math.floor(ctx.count));
+        if (bonus <= 0) return;
+        ctx.damage += bonus;
+        ctx.addLog(`[幽灯] 对方寒冷 ${coldStacks} 层，法术伤害 +${bonus}。`);
+      },
+    },
   },
   {
     id: 'yanhan_ice_core',

@@ -1758,6 +1758,19 @@ const MAGIC_DOLL_DAMAGE_CARD: CardData = {
   cardEffects: [],
   description: '圣遗物固定伤害结算占位卡',
 };
+const MICRO_FLOATING_CANNON_DAMAGE_CARD: CardData = {
+  id: 'relic_yanhan_micro_floating_cannon_damage',
+  name: '微型悬浮炮',
+  type: CardType.MAGIC,
+  category: '严寒',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 1 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '圣遗物独立伤害结算占位卡',
+};
 const activePlayerRelics = resolveRelicMap(props.playerRelics);
 const playerDiceRerollCharges = ref(0);
 const relicRuntimeState = reactive<Record<string, Record<string, unknown>>>({});
@@ -1777,6 +1790,7 @@ const damageHitTakenThisCombat = ref<Record<BattleSide, number>>({
 const freezePumpTriggersThisTurn = ref(0);
 const freezeFlowCoreTriggeredThisTurn = ref(false);
 const sealCircuitPendingMana = ref(0);
+const microFloatingCannonTriggeredThisTurn = ref(false);
 const modaoStabilizerTriggersThisTurn = ref(0);
 const bloodpoolSkinMarkTriggersThisTurn = ref(0);
 const bloodpoolFirstBleedFeastTriggered = ref(false);
@@ -4568,6 +4582,53 @@ const triggerPlayerAfterRerollRelics = (before: number, after: number) => {
   }
 };
 
+const triggerMicroFloatingCannonDamage = (source: BattleSide, defenderSide: BattleSide) => {
+  if (source !== 'player' || defenderSide !== 'enemy') return;
+  if (microFloatingCannonTriggeredThisTurn.value) return;
+  if (getActiveRelicCount('yanhan_micro_floating_cannon') <= 0) return;
+  if (enemyStats.value.hp <= 0) return;
+
+  microFloatingCannonTriggeredThisTurn.value = true;
+  const { damage, isTrueDamage, logs: damageLogs } = calculateFinalDamage({
+    finalPoint: 1,
+    card: MICRO_FLOATING_CANNON_DAMAGE_CARD,
+    attackerEffects: playerStats.value.effects,
+    defenderEffects: enemyStats.value.effects,
+    relicModifiers: NO_RELIC_MOD,
+    isTrueDamage: false,
+  });
+  const armorBefore = getEffectStacks(enemyStats.value, ET.ARMOR);
+  const barrierBefore = getEffectStacks(enemyStats.value, ET.BARRIER);
+  const { actualDamage, logs: applyLogs } = applyDamageToSideWithRelics(
+    'enemy',
+    enemyStats.value,
+    damage,
+    isTrueDamage,
+    '微型悬浮炮',
+    { sourceSide: 'player', isDirectDamage: true, card: MICRO_FLOATING_CANNON_DAMAGE_CARD },
+  );
+  const armorBlocked =
+    actualDamage <= 0
+    && !isTrueDamage
+    && damage > 0
+    && barrierBefore <= 0
+    && armorBefore > 0;
+  if (actualDamage > 0 || armorBlocked) {
+    pushFloatingNumber('enemy', actualDamage, isTrueDamage ? 'true' : 'magic', '-', {
+      allowZero: armorBlocked,
+    });
+  }
+  logRelicMessage(`[微型悬浮炮] 额外造成 ${actualDamage} 点伤害。`);
+  for (const damageLog of damageLogs) {
+    if (damageLog.startsWith('原始伤害:')) continue;
+    log(`<span class="text-gray-500 text-[9px]">${damageLog}</span>`);
+  }
+  for (const applyLog of applyLogs) {
+    const normalized = applyLog.startsWith('受到') ? `敌方${applyLog}` : applyLog;
+    log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+  }
+};
+
 const handlePlayerDiceClick = () => {
   if (!canPlayerRerollDice.value) return;
 
@@ -5841,6 +5902,7 @@ watch(
       damageHitTakenThisTurn.value = { player: 0, enemy: 0 };
       freezePumpTriggersThisTurn.value = 0;
       freezeFlowCoreTriggeredThisTurn.value = false;
+      microFloatingCannonTriggeredThisTurn.value = false;
       modaoStabilizerTriggersThisTurn.value = 0;
       bloodpoolSkinMarkTriggersThisTurn.value = 0;
       const playerVoidTaint = findEffect(playerStats.value, ET.VOID_TAINT);
@@ -7984,6 +8046,9 @@ const resolveCombat = async (
           adjustedDamage,
           actualDamage,
         );
+        if (card.type === CardType.MAGIC && actualDamage > 0) {
+          triggerMicroFloatingCannonDamage(source, defenderSide);
+        }
         const bloodstainedBladeCount = getActiveRelicCount('bloodpool_bloodstained_blade');
         if (
           bloodstainedBladeCount > 0

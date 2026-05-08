@@ -5,23 +5,47 @@
       <p class="save-load-empty-text">暂无存档记录</p>
     </div>
 
-    <div v-else class="save-load-list custom-scrollbar">
-      <button
-        v-for="entry in entries"
-        :key="entry.messageId"
-        class="save-load-entry group"
-        @click="handleRollback(entry.messageId)"
-      >
-        <div class="save-load-entry-badge">
-          <span>#{{ entry.messageId }}</span>
+    <template v-else>
+      <div class="save-load-toolbar">
+        <span class="save-load-toolbar-label">排序</span>
+        <div class="save-load-order-toggle" role="group" aria-label="回档记录排序">
+          <button
+            class="save-load-order-btn"
+            :class="sortOrder === 'desc' ? 'is-active' : ''"
+            type="button"
+            @click="sortOrder = 'desc'"
+          >
+            倒序
+          </button>
+          <button
+            class="save-load-order-btn"
+            :class="sortOrder === 'asc' ? 'is-active' : ''"
+            type="button"
+            @click="sortOrder = 'asc'"
+          >
+            正序
+          </button>
         </div>
-        <div class="save-load-entry-main">
-          <div class="save-load-entry-title">第 {{ entry.messageId }} 层</div>
-          <p class="save-load-entry-summary">{{ entry.summary }}</p>
-        </div>
-        <RotateCcw class="save-load-entry-icon" />
-      </button>
-    </div>
+      </div>
+
+      <div class="save-load-list custom-scrollbar">
+        <button
+          v-for="entry in sortedEntries"
+          :key="entry.messageId"
+          class="save-load-entry group"
+          @click="handleRollback(entry.messageId)"
+        >
+          <div class="save-load-entry-badge">
+            <span>#{{ entry.messageId }}</span>
+          </div>
+          <div class="save-load-entry-main">
+            <div class="save-load-entry-title">第 {{ entry.messageId }} 层</div>
+            <p class="save-load-entry-summary">{{ entry.summary }}</p>
+          </div>
+          <RotateCcw class="save-load-entry-icon" />
+        </button>
+      </div>
+    </template>
 
     <div class="save-load-actions">
       <button
@@ -78,7 +102,7 @@ import { BookOpen, Pencil, RefreshCw, RotateCcw } from 'lucide-vue-next';
 import { useGameStore, type SaveEntry } from '../gameStore';
 import DungeonModal from './DungeonModal.vue';
 
-defineProps<{
+const props = defineProps<{
   isOpen: boolean;
   entries: SaveEntry[];
 }>();
@@ -90,6 +114,11 @@ const emit = defineEmits<{
 
 const gameStore = useGameStore();
 const confirmTarget = ref<number | null>(null);
+const sortOrder = ref<'asc' | 'desc'>('desc');
+const sortedEntries = computed(() => {
+  const direction = sortOrder.value === 'asc' ? 1 : -1;
+  return [...props.entries].sort((a, b) => (a.messageId - b.messageId) * direction);
+});
 
 function handleRollback(messageId: number) {
   confirmTarget.value = messageId;
@@ -147,6 +176,54 @@ function handleEdit() {
   max-height: 60vh;
   overflow-y: auto;
   padding-right: 0.42rem;
+}
+
+.save-load-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.72rem;
+  padding: 0 0.12rem;
+}
+
+.save-load-toolbar-label {
+  color: rgba(245, 222, 179, 0.74);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.save-load-order-toggle {
+  display: inline-flex;
+  border-radius: 0.58rem;
+  border: 1px solid rgba(92, 62, 38, 0.7);
+  background: rgba(16, 11, 8, 0.72);
+  padding: 0.16rem;
+}
+
+.save-load-order-btn {
+  min-width: 3.2rem;
+  border-radius: 0.42rem;
+  border: 1px solid transparent;
+  color: rgba(231, 229, 228, 0.7);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.76rem;
+  line-height: 1;
+  padding: 0.38rem 0.58rem;
+  transition: border-color 0.18s ease, color 0.18s ease, background-color 0.18s ease;
+}
+
+.save-load-order-btn:hover,
+.save-load-order-btn:focus-visible {
+  outline: none;
+  color: rgba(251, 191, 36, 0.95);
+}
+
+.save-load-order-btn.is-active {
+  border-color: rgba(212, 175, 55, 0.38);
+  background: rgba(120, 53, 15, 0.26);
+  color: rgba(251, 191, 36, 0.96);
 }
 
 .save-load-entry {
