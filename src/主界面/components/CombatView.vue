@@ -1104,6 +1104,7 @@ const bgImageError = ref(false);
 const HF_BASE = `${IMAGE_CDN_ROOT}/%E5%9C%B0%E7%89%A2/%E8%83%8C%E6%99%AF`;
 const currentArea = computed(() => (gameStore.statData._当前区域 as string) || '');
 const currentRoomType = computed(() => (gameStore.statData._当前房间类型 as string) || '');
+const isCurrentOpponentLord = () => currentRoomType.value.includes('领主') || BOSS_FOLDER_NAMES.has(enemyDisplayName);
 const bgImageUrl = computed(() => {
   if (!currentArea.value || bgImageError.value) return '';
   const isLord = currentRoomType.value === '领主' && !bgIsLordFallback.value;
@@ -4076,7 +4077,7 @@ const getCardFinalPoint = (
       log(`<span class="text-indigo-300">${source === 'player' ? '我方' : '敌方'}【${card.name}】首次使用，点数 +4</span>`);
     }
   }
-  if (card.id === 'basic_targeted_slash' && source === 'player' && currentRoomType.value === '领主') {
+  if (card.id === 'basic_targeted_slash' && source === 'player' && isCurrentOpponentLord()) {
     finalPoint += 4;
   }
   if (card.id === 'basic_stealth' && source === 'player' && hasNoPhysicalOrMagicInHand(source, card)) {
@@ -4338,7 +4339,7 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
     finalPoint += 4;
     lines.push(`袭击（首次使用）+4 => ${finalPoint}`);
   }
-  if (card.id === 'basic_targeted_slash' && source === 'player' && currentRoomType.value === '领主') {
+  if (card.id === 'basic_targeted_slash' && source === 'player' && isCurrentOpponentLord()) {
     finalPoint += 4;
     lines.push(`针对性斩击（领主）+4 => ${finalPoint}`);
   }
