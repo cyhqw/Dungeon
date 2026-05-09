@@ -44,6 +44,8 @@ export const useGameStore = defineStore('game', () => {
   const AUTO_SUMMARY_ENABLED_KEY = 'dungeon.auto_summary_enabled';
   const SUMMARY_VISIBLE_WINDOW_KEY = 'dungeon.summary_visible_window';
   const BUTTON_COMPLETION_ENABLED_KEY = 'dungeon.button_completion_enabled';
+  const FAST_MODE_ENABLED_KEY = 'dungeon.fast_mode_enabled';
+  const FAST_MODE_CHAT_VARIABLE_KEY = '__dungeon_fast_mode_buffer';
   const DEFAULT_SUMMARY_VISIBLE_WINDOW = 15;
   const MIN_SUMMARY_VISIBLE_WINDOW = 1;
   const MAX_SUMMARY_VISIBLE_WINDOW = 60;
@@ -144,6 +146,24 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  function readFastModeEnabledSetting(): boolean {
+    try {
+      const raw = localStorage.getItem(FAST_MODE_ENABLED_KEY);
+      if (raw === null) return false;
+      return raw === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  function persistFastModeEnabledSetting(enabled: boolean) {
+    try {
+      localStorage.setItem(FAST_MODE_ENABLED_KEY, String(enabled));
+    } catch {
+      // Ignore persistence errors in restricted environments
+    }
+  }
+
   // State
   const mainText = ref('');
   const options = ref<string[]>([]);
@@ -155,6 +175,7 @@ export const useGameStore = defineStore('game', () => {
   const autoSummaryEnabled = ref(readAutoSummaryEnabledSetting());
   const summaryVisibleWindow = ref(readSummaryVisibleWindowSetting());
   const buttonCompletionEnabled = ref(readButtonCompletionEnabledSetting());
+  const fastModeEnabled = ref(readFastModeEnabledSetting());
   const error = ref<string | null>(null);
   const isInitialized = ref(false);
 
@@ -202,9 +223,29 @@ export const useGameStore = defineStore('game', () => {
   interface PendingStatDataChanges {
     fields: Record<string, any>;
   }
+  interface FastActionEvent {
+    id: string;
+    type: string;
+    text: string;
+    important: boolean;
+  }
+  interface FastActionInput {
+    type?: string;
+    text: string;
+    important?: boolean;
+  }
+  interface PersistedFastModeBuffer {
+    version: 1;
+    baseMessageId: number | null;
+    events: FastActionEvent[];
+    mvuData: any | null;
+  }
   const pendingPortalChanges = ref<PendingPortalChanges | null>(null);
   const pendingCombatMvuChanges = ref<PendingCombatMvuChanges | null>(null);
   const pendingStatDataChanges = ref<PendingStatDataChanges | null>(null);
+  const fastActionEvents = ref<FastActionEvent[]>([]);
+  const fastModeBaseMessageId = ref<number | null>(null);
+  const fastModeMvuData = ref<any | null>(null);
 
   const getResponseParserOptions = (): ResponseParserOptions => ({
     forbidMatchingXmlInsideThink: forbidMatchingXmlInsideThink.value,
@@ -878,6 +919,15 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  function setFastModeEnabled(enabled: boolean) {
+    const nextEnabled = Boolean(enabled);
+    fastModeEnabled.value = nextEnabled;
+    persistFastModeEnabledSetting(nextEnabled);
+    if (!nextEnabled) {
+      clearFastModeBuffer();
+    }
+  }
+
   function syncFloorNumberByArea(mvuData: any) {
     if (!mvuData || typeof mvuData !== 'object') return mvuData;
     const stat = _.get(mvuData, 'stat_data');
@@ -1013,6 +1063,248 @@ export const useGameStore = defineStore('game', () => {
     return syncFloorNumberByArea(result);
   }
 
+  function clearFastModeBuffer() {
+    fastActionEvents.value = [];
+    fastModeBaseMessageId.value = null;
+    fastModeMvuData.value = null;
+    manualHasOptionE.value = false;
+    manualHasLeave.value = false;
+    persistFastModeBufferToChatVariables();
+  }
+
+  function buildPersistedFastModeBuffer(): PersistedFastModeBuffer | null {
+    if (fastActionEvents.value.length === 0 && !fastModeMvuData.value) return null;
+    return {
+      version: 1,
+      baseMessageId: fastModeBaseMessageId.value,
+      events: _.cloneDeep(fastActionEvents.value),
+      mvuData: _.cloneDeep(fastModeMvuData.value),
+    };
+  }
+
+  function persistFastModeBufferToChatVariables() {
+    try {
+      const payload = buildPersistedFastModeBuffer();
+      updateVariablesWith(variables => {
+        const nextVariables = _.cloneDeep(variables ?? {});
+        if (payload) {
+          _.set(nextVariables, FAST_MODE_CHAT_VARIABLE_KEY, payload);
+        } else {
+          _.unset(nextVariables, FAST_MODE_CHAT_VARIABLE_KEY);
+        }
+        return nextVariables;
+      }, { type: 'chat' });
+    } catch (err) {
+      console.warn('[GameStore] persistFastModeBufferToChatVariables failed:', err);
+    }
+  }
+
+  function normalizePersistedFastActionEvents(value: unknown): FastActionEvent[] {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((item): FastActionEvent | null => {
+        if (!item || typeof item !== 'object') return null;
+        const raw = item as Record<string, unknown>;
+        const text = typeof raw.text === 'string' ? normalizeFastActionText(raw.text) : '';
+        if (!text) return null;
+        return {
+          id: typeof raw.id === 'string' && raw.id ? raw.id : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+          type: typeof raw.type === 'string' && raw.type ? raw.type : 'action',
+          text,
+          important: raw.important !== false,
+        };
+      })
+      .filter((item): item is FastActionEvent => item !== null);
+  }
+
+  function loadFastModeBufferFromChatVariables(): boolean {
+    try {
+      const variables = getVariables({ type: 'chat' });
+      const raw = _.get(variables, FAST_MODE_CHAT_VARIABLE_KEY);
+      if (!raw || typeof raw !== 'object') return false;
+
+      const payload = raw as Partial<PersistedFastModeBuffer>;
+      if (payload.version !== 1) return false;
+
+      const currentLastMessageId = getLastMessageId();
+      const baseMessageId =
+        typeof payload.baseMessageId === 'number' && Number.isFinite(payload.baseMessageId)
+          ? Math.floor(payload.baseMessageId)
+          : null;
+      if (baseMessageId !== null && currentLastMessageId >= 0 && baseMessageId !== currentLastMessageId) {
+        console.info('[GameStore] Dropping stale fast mode buffer from chat variables');
+        clearFastModeBuffer();
+        return false;
+      }
+
+      const restoredEvents = normalizePersistedFastActionEvents(payload.events);
+      const restoredMvuData = payload.mvuData;
+      if (restoredEvents.length === 0 || !restoredMvuData || typeof restoredMvuData !== 'object') return false;
+
+      fastModeBaseMessageId.value = baseMessageId;
+      fastActionEvents.value = restoredEvents;
+      fastModeMvuData.value = _.cloneDeep(restoredMvuData);
+      refreshLocalStatData(fastModeMvuData.value);
+      if (fastModeEnabled.value) {
+        updateFastModeDisplay();
+      }
+      return true;
+    } catch (err) {
+      console.warn('[GameStore] loadFastModeBufferFromChatVariables failed:', err);
+      return false;
+    }
+  }
+
+  function getFastModeBaseMvuData() {
+    if (fastModeMvuData.value) return _.cloneDeep(fastModeMvuData.value);
+
+    const lastId = getLastMessageId();
+    fastModeBaseMessageId.value = lastId >= 0 ? lastId : null;
+    const base = lastId >= 0 ? Mvu.getMvuData({ type: 'message', message_id: lastId }) : {};
+    fastModeMvuData.value = _.cloneDeep(base ?? {});
+    return _.cloneDeep(fastModeMvuData.value);
+  }
+
+  function applyQueuedPendingChangesToMvu(baseMvuData: any) {
+    const currentPendingPortalChanges = pendingPortalChanges.value;
+    const currentPendingCombatChanges = pendingCombatMvuChanges.value;
+    const currentPendingStatDataChanges = pendingStatDataChanges.value;
+
+    const afterPortal = applyPendingPortalChangesToMvu(baseMvuData, currentPendingPortalChanges);
+    const afterCombat = applyPendingCombatChangesToMvu(afterPortal, currentPendingCombatChanges);
+    const afterStatData = applyPendingStatDataChangesToMvu(afterCombat, currentPendingStatDataChanges);
+    syncFloorNumberByArea(afterStatData);
+
+    pendingPortalChanges.value = null;
+    pendingCombatMvuChanges.value = null;
+    pendingStatDataChanges.value = null;
+
+    return afterStatData;
+  }
+
+  function normalizeFastActionText(text: string): string {
+    return text
+      .replace(/<\s*user\s*>/giu, '')
+      .replace(/\s+/gu, ' ')
+      .trim();
+  }
+
+  function getFastModeCurrentRoomType(): string {
+    const sd = _.get(fastModeMvuData.value, 'stat_data') ?? statData.value;
+    return typeof sd?._当前房间类型 === 'string' ? sd._当前房间类型.trim() : '';
+  }
+
+  function exposeFastModeInteractionButtons() {
+    const roomType = getFastModeCurrentRoomType();
+    const roomHasSpecial = ['宝箱房', '商店房', '温泉房', '神像房', '战斗房', '领主房'].includes(roomType);
+    manualHasOptionE.value = roomHasSpecial;
+    manualHasLeave.value = true;
+  }
+
+  function updateFastModeDisplay() {
+    const lines = fastActionEvents.value.map((event, index) => `${index + 1}. ${normalizeFastActionText(event.text)}`);
+    mainText.value = lines.length > 0 ? `【剧情精简模式】\n${lines.join('\n')}` : mainText.value;
+    options.value = [];
+    currentSummary.value = lines.join(' ');
+    variableUpdateText.value = '';
+    exposeFastModeInteractionButtons();
+  }
+
+  function queueFastAction(input: string | FastActionInput): boolean {
+    const payload: FastActionInput = typeof input === 'string' ? { text: input } : input;
+    const text = normalizeFastActionText(payload.text);
+    if (!fastModeEnabled.value || !text) return false;
+
+    try {
+      const base = getFastModeBaseMvuData();
+      const nextMvuData = applyQueuedPendingChangesToMvu(base);
+      fastModeMvuData.value = _.cloneDeep(nextMvuData);
+      refreshLocalStatData(nextMvuData);
+
+      fastActionEvents.value.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        type: payload.type ?? 'action',
+        text,
+        important: payload.important !== false,
+      });
+      persistFastModeBufferToChatVariables();
+      updateFastModeDisplay();
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[GameStore] queueFastAction error:', msg);
+      error.value = `剧情精简模式记录失败: ${msg}`;
+      return false;
+    }
+  }
+
+  function formatFastModeStateSnapshot(mvuData: any): string {
+    const sd = _.get(mvuData, 'stat_data') ?? {};
+    const stats = sd.$统计 && typeof sd.$统计 === 'object' ? sd.$统计 : {};
+    const path = Array.isArray(sd.$路径) ? sd.$路径.filter((item: unknown): item is string => typeof item === 'string') : [];
+    const statuses = Array.isArray(sd.$负面状态)
+      ? sd.$负面状态.filter((item: unknown): item is string => typeof item === 'string')
+      : [];
+    const relics = _.get(sd, '携带的物品._圣遗物');
+    const relicText =
+      relics && typeof relics === 'object'
+        ? Object.entries(relics as Record<string, unknown>)
+            .filter(([, value]) => Number(value) > 0)
+            .map(([name, value]) => `${name}x${Math.floor(Number(value))}`)
+            .join('、')
+        : '';
+
+    return [
+      `当前区域：${sd._当前区域 ?? '未知'}`,
+      `当前房间：${sd._当前房间类型 ?? '未知'}`,
+      `当前对手：${sd._对手名称 || '无'}`,
+      `生命：${sd._血量 ?? '?'} / ${sd._血量上限 ?? '?'}`,
+      `魔量：${sd.$魔量 ?? '?'}`,
+      `金币：${sd._金币 ?? '?'}`,
+      `路径：${path.length > 0 ? path.join(' → ') : '未记录'}`,
+      `负面状态：${statuses.length > 0 ? statuses.join('、') : '无'}`,
+      `圣遗物：${relicText || '无变化或未记录'}`,
+      `本层已过房间：${stats.当前层已过房间 ?? 0}`,
+    ].join('\n');
+  }
+
+  function buildFastModeFlushPrompt(finalActionText?: string): string {
+    const eventLines = fastActionEvents.value
+      .filter(event => event.important)
+      .map((event, index) => `${index + 1}. ${normalizeFastActionText(event.text)}`)
+      .join('\n');
+    const finalText = normalizeFastActionText(finalActionText ?? '');
+    const stateSnapshot = formatFastModeStateSnapshot(fastModeMvuData.value ?? {});
+
+    return [
+      '<user>以下内容来自剧情精简模式，均为系统已经结算完成的既成事实。请承认这些事件与最终变量状态，不要回滚、重写、质疑或重新计算它们。',
+      '',
+      '【剧情精简模式经过】',
+      eventLines || '（无额外经过）',
+      '',
+      '【最终状态】',
+      stateSnapshot,
+      '',
+      '【现在】',
+      finalText ? `<user>${finalText}` : '<user>请基于以上既成事实继续当前关键房间剧情。',
+    ].join('\n');
+  }
+
+  async function flushFastActions(finalActionText?: string): Promise<boolean> {
+    if (!fastModeEnabled.value || fastActionEvents.value.length === 0) {
+      if (!finalActionText?.trim()) return false;
+      return await sendAction(finalActionText);
+    }
+
+    const prompt = buildFastModeFlushPrompt(finalActionText);
+    const mvuData = _.cloneDeep(fastModeMvuData.value ?? {});
+    const ok = await sendAction(prompt, { userMvuDataOverride: mvuData });
+    if (ok) {
+      clearFastModeBuffer();
+    }
+    return ok;
+  }
+
   /**
    * 初始化：从最新 assistant 楼层加载当前游戏状态
    */
@@ -1026,6 +1318,7 @@ export const useGameStore = defineStore('game', () => {
       if (lastId >= 0) {
         loadLatestAssistantState();
         loadStatData();
+        loadFastModeBufferFromChatVariables();
         await ensureLatestMessageWindow();
         if (!autoSummaryEnabled.value) {
           await overwriteAutoSummaryEntryContent('');
@@ -1131,8 +1424,8 @@ export const useGameStore = defineStore('game', () => {
    * 5. 创建 assistant 楼层（携带解析后的 MVU 数据）
    * 6. 隐藏旧楼层，更新显示
    */
-  async function sendAction(userInput: string) {
-    if (isGenerating.value || !userInput.trim()) return;
+  async function sendAction(userInput: string, options?: { userMvuDataOverride?: any }): Promise<boolean> {
+    if (isGenerating.value || !userInput.trim()) return false;
 
     error.value = null;
     isGenerating.value = true;
@@ -1148,12 +1441,15 @@ export const useGameStore = defineStore('game', () => {
       const currentPendingStatDataChanges = pendingStatDataChanges.value;
 
       // 2. 先将传送门变量写入 user 楼层对应的 MVU 数据
-      const userMvuDataAfterPortal = applyPendingPortalChangesToMvu(oldMvuData, currentPendingPortalChanges);
-      const userMvuDataAfterCombat = applyPendingCombatChangesToMvu(
-        userMvuDataAfterPortal,
-        currentPendingCombatChanges,
-      );
-      const userMvuData = applyPendingStatDataChangesToMvu(userMvuDataAfterCombat, currentPendingStatDataChanges);
+      const userMvuData = options?.userMvuDataOverride
+        ? _.cloneDeep(options.userMvuDataOverride)
+        : applyPendingStatDataChangesToMvu(
+            applyPendingCombatChangesToMvu(
+              applyPendingPortalChangesToMvu(oldMvuData, currentPendingPortalChanges),
+              currentPendingCombatChanges,
+            ),
+            currentPendingStatDataChanges,
+          );
       syncFloorNumberByArea(userMvuData);
 
       // 3. 创建 user 楼层（携带已应用按钮变更后的 MVU 数据）
@@ -1224,10 +1520,12 @@ export const useGameStore = defineStore('game', () => {
       await updateAutoSummaryChronicle(newAssistantMessageId, parsed.summary);
       await ensureLatestMessageWindow();
       console.info('[GameStore] Action completed successfully');
+      return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error('[GameStore] sendAction error:', msg);
       error.value = `生成失败: ${msg}`;
+      return false;
     } finally {
       isGenerating.value = false;
     }
@@ -1303,6 +1601,7 @@ export const useGameStore = defineStore('game', () => {
       }
 
       // 删除 target 之后的所有楼层
+      clearFastModeBuffer();
       const idsToDelete: number[] = [];
       for (let i = targetMessageId + 1; i <= lastId; i++) {
         idsToDelete.push(i);
@@ -1555,6 +1854,8 @@ export const useGameStore = defineStore('game', () => {
     autoSummaryEnabled,
     summaryVisibleWindow,
     buttonCompletionEnabled,
+    fastModeEnabled,
+    fastActionEvents,
     streamingText,
     error,
     isInitialized,
@@ -1580,6 +1881,10 @@ export const useGameStore = defineStore('game', () => {
     setAutoSummaryEnabled,
     setSummaryVisibleWindow,
     setButtonCompletionEnabled,
+    setFastModeEnabled,
+    queueFastAction,
+    flushFastActions,
+    clearFastModeBuffer,
     showManualButtonCompletion,
     hideManualButtonCompletion,
     setPendingPortalChanges,

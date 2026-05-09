@@ -1703,6 +1703,24 @@
                     </span>
                   </button>
                 </div>
+
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <label class="text-dungeon-paper/70 text-sm font-ui">剧情精简模式</label>
+                  <button
+                    type="button"
+                    class="settings-switch sm:shrink-0"
+                    :class="{ 'is-on': isFastModeEnabled }"
+                    :aria-checked="isFastModeEnabled"
+                    role="switch"
+                    @click="isFastModeEnabled = !isFastModeEnabled"
+                  >
+                    <span class="settings-switch-track">
+                      <span class="settings-switch-label settings-switch-label--off">关</span>
+                      <span class="settings-switch-label settings-switch-label--on">开</span>
+                      <span class="settings-switch-thumb"></span>
+                    </span>
+                  </button>
+                </div>
               </div>
             </section>
 
@@ -4977,6 +4995,11 @@ const isButtonCompletionEnabled = computed<boolean>({
   set: value => gameStore.setButtonCompletionEnabled(value),
 });
 
+const isFastModeEnabled = computed<boolean>({
+  get: () => gameStore.fastModeEnabled,
+  set: value => gameStore.setFastModeEnabled(value),
+});
+
 watch(isButtonCompletionEnabled, enabled => {
   if (!enabled) {
     closeOptionCompletionMenu();
@@ -6246,10 +6269,40 @@ const buildCombatNarrative = (outcome: CombatOutcome, enemyName: string, context
   return `${outcomeLine}\n${contextLine}\n${followupLine}\n<user>战斗日志（时间顺序）：\n${formatCombatLogs(logs)}`;
 };
 
-const sendCombatNarrativeOnce = (narrative: { id: string }, text: string) => {
+const isFastModeSyncRoomType = (roomType: string): boolean => roomType === '商店房' || roomType === '领主房';
+
+const submitGameAction = async (text: string, targetRoomType: string, type = 'action') => {
+  if (!gameStore.fastModeEnabled) {
+    await gameStore.sendAction(text);
+    return;
+  }
+
+  const queued = gameStore.queueFastAction({ type, text });
+  if (!queued) {
+    await gameStore.sendAction(text);
+    return;
+  }
+
+  if (isFastModeSyncRoomType(targetRoomType)) {
+    await gameStore.flushFastActions();
+  }
+};
+
+const sendCombatNarrativeOnce = (narrative: { id: string; context?: CombatContext }, text: string) => {
   if (dispatchedCombatNarrativeIds.has(narrative.id)) return;
   if (gameStore.isGenerating) return;
   dispatchedCombatNarrativeIds.add(narrative.id);
+  const roomType = ((gameStore.statData._当前房间类型 as string) || '').trim();
+  if (
+    gameStore.fastModeEnabled &&
+    narrative.context !== 'shopRobbery' &&
+    narrative.context !== 'combatTest' &&
+    !isFastModeSyncRoomType(roomType)
+  ) {
+    gameStore.queueFastAction({ type: 'battle', text });
+    gameStore.hideManualButtonCompletion('special');
+    return;
+  }
   gameStore.sendAction(text);
 };
 
@@ -6684,7 +6737,12 @@ const exitShop = () => {
 
   if (purchased.length === 0) return;
   const purchasedText = purchased.map(item => `${item.name}（${item.rarity}）`).join('，');
-  gameStore.sendAction(`<user>从沐芯兰处购买了${purchasedText}，总共花费${total}枚金币。`);
+  const purchaseText = `<user>从沐芯兰处购买了${purchasedText}，总共花费${total}枚金币。`;
+  if (gameStore.fastModeEnabled) {
+    gameStore.queueFastAction({ type: 'shopBuy', text: purchaseText });
+    return;
+  }
+  gameStore.sendAction(purchaseText);
 };
 
 const handleShopRobClick = async () => {
@@ -6793,13 +6851,14 @@ const showHotSpringCleanseText = () => {
   }, 2600);
 };
 
-const useHotSpringCleanse = () => {
+const useHotSpringCleanse = async () => {
   showHotSpringCleanseText();
   const retainedNegativeStatuses = normalizeNegativeStatusList(gameStore.statData.$负面状态).filter((status: string) =>
     HOT_SPRING_CLEANSE_EXEMPT_NEGATIVE_STATUSES.has(status),
   );
   gameStore.setPendingStatDataChanges({ $负面状态: retainedNegativeStatuses });
-  gameStore.sendAction(HOT_SPRING_CLEANSE_ACTION_TEXT);
+  await submitGameAction(HOT_SPRING_CLEANSE_ACTION_TEXT, '温泉房', 'spring');
+  gameStore.hideManualButtonCompletion('special');
 };
 
 onUnmounted(() => {
@@ -7214,6 +7273,7 @@ const startCombatFromSpecialOption = async () => {
 };
 
 const handleSpecialOption = async () => {
+  gameStore.hideManualButtonCompletion('special');
   if (isTreasureRoomContext.value) {
     openChestView();
     return;
@@ -7223,7 +7283,7 @@ const handleSpecialOption = async () => {
     return;
   }
   if (isHotSpringRoomContext.value) {
-    useHotSpringCleanse();
+    await useHotSpringCleanse();
     return;
   }
   if (isIdolRoomContext.value) {
@@ -8040,6 +8100,7 @@ const getPathLabelByRoomType = (roomType: string): string =>
 interface QueuedPortalAction {
   actionText: string;
   enterText: string;
+  targetRoomType: string;
   pendingStatDataFields?: Record<string, any>;
 }
 
@@ -8067,6 +8128,7 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
     const enterText = `进入了${portal.areaName}的宝箱房`;
     return {
       enterText,
+      targetRoomType: '宝箱房',
       actionText: `<user>选择了继续前进，${enterText}`,
       pendingStatDataFields,
     };
@@ -8120,6 +8182,7 @@ const buildQueuedPortalAction = (portal: PortalChoice): QueuedPortalAction => {
 
   return {
     enterText,
+    targetRoomType: portal.roomType,
     actionText: `<user>选择了继续前进，${enterText}`,
     pendingStatDataFields,
   };
@@ -8141,15 +8204,15 @@ function generateRoomLeavePortals(): PortalChoice[] {
 const handlePortalClick = async (portal: PortalChoice) => {
   if (gameStore.isGenerating) return;
   resetShopSession();
-  const { actionText, pendingStatDataFields } = buildQueuedPortalAction(portal);
+  const { actionText, pendingStatDataFields, targetRoomType } = buildQueuedPortalAction(portal);
   gameStore.setPendingStatDataChanges(pendingStatDataFields ?? null);
-  gameStore.sendAction(actionText);
+  await submitGameAction(actionText, targetRoomType, 'portal');
 };
 
 const handleChestPortalClick = async (portal: PortalChoice) => {
   if (gameStore.isGenerating || chestCollecting.value || chestStage.value !== 'opened') return;
   resetShopSession();
-  const { actionText, enterText, pendingStatDataFields } = buildQueuedPortalAction(portal);
+  const { actionText, enterText, pendingStatDataFields, targetRoomType } = buildQueuedPortalAction(portal);
   const collectedRelics = chestRewardRelics.value.filter((_, idx) => chestRewardCollectedFlags.value[idx]);
   const mergedPendingStatDataFields: Record<string, any> = {
     ...(pendingStatDataFields ?? {}),
@@ -8169,18 +8232,20 @@ const handleChestPortalClick = async (portal: PortalChoice) => {
   const relicNameText = collectedRelics.map(relic => relic.name).join('、');
   closeChestView();
   if (relicNameText) {
-    gameStore.sendAction(
+    await submitGameAction(
       `<user>打开了箱子并从中获取了圣遗物${relicNameText}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
+      targetRoomType,
+      'chest',
     );
     return;
   }
-  gameStore.sendAction(actionText);
+  await submitGameAction(actionText, targetRoomType, 'portal');
 };
 
 const handleIdolPortalClick = async (portal: PortalChoice) => {
   if (gameStore.isGenerating || !showIdolView.value) return;
   resetShopSession();
-  const { enterText, pendingStatDataFields } = buildQueuedPortalAction(portal);
+  const { enterText, pendingStatDataFields, targetRoomType } = buildQueuedPortalAction(portal);
   const reward = idolRewardSummary.value;
   const mergedPendingStatDataFields: Record<string, any> = {
     ...(pendingStatDataFields ?? {}),
@@ -8194,11 +8259,17 @@ const handleIdolPortalClick = async (portal: PortalChoice) => {
 
   closeIdolView();
   if (!reward) {
-    gameStore.sendAction(`<user>没有膜拜任何一座神像，随后离开了当前房间并进入了下一个房间，<user>${enterText}`);
+    await submitGameAction(
+      `<user>没有膜拜任何一座神像，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
+      targetRoomType,
+      'idol',
+    );
     return;
   }
-  gameStore.sendAction(
+  await submitGameAction(
     `<user>选择膜拜了${reward.statueName}并获得了${reward.rewardText}，随后离开了当前房间并进入了下一个房间，<user>${enterText}`,
+    targetRoomType,
+    'idol',
   );
 };
 
