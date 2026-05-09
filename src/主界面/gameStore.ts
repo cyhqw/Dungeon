@@ -46,6 +46,8 @@ export const useGameStore = defineStore('game', () => {
   const BUTTON_COMPLETION_ENABLED_KEY = 'dungeon.button_completion_enabled';
   const FAST_MODE_ENABLED_KEY = 'dungeon.fast_mode_enabled';
   const FAST_MODE_CHAT_VARIABLE_KEY = '__dungeon_fast_mode_buffer';
+  const FAST_MODE_BUFFER_TITLE = '【剧情精简模式】';
+  const FAST_MODE_BUFFER_EVENTS_TITLE = '【剧情精简模式经过】';
   const DEFAULT_SUMMARY_VISIBLE_WINDOW = 15;
   const MIN_SUMMARY_VISIBLE_WINDOW = 1;
   const MAX_SUMMARY_VISIBLE_WINDOW = 60;
@@ -245,7 +247,9 @@ export const useGameStore = defineStore('game', () => {
   const pendingStatDataChanges = ref<PendingStatDataChanges | null>(null);
   const fastActionEvents = ref<FastActionEvent[]>([]);
   const fastModeBaseMessageId = ref<number | null>(null);
+  const fastModeBufferUserMessageId = ref<number | null>(null);
   const fastModeMvuData = ref<any | null>(null);
+  const fastModeBufferActive = computed(() => fastModeBufferUserMessageId.value !== null && fastActionEvents.value.length > 0);
 
   const getResponseParserOptions = (): ResponseParserOptions => ({
     forbidMatchingXmlInsideThink: forbidMatchingXmlInsideThink.value,
@@ -314,6 +318,7 @@ export const useGameStore = defineStore('game', () => {
 
   function setPendingStatDataChanges(fields: Record<string, any> | null) {
     pendingStatDataChanges.value = fields ? { fields: _.cloneDeep(fields) } : null;
+    previewPendingStatDataChangesForFastMode();
   }
 
   function mergePendingStatDataChanges(fields: Record<string, any> | null) {
@@ -325,6 +330,7 @@ export const useGameStore = defineStore('game', () => {
         ..._.cloneDeep(fields),
       },
     };
+    previewPendingStatDataChangesForFastMode();
   }
 
   const AUTO_SUMMARY_ENTRY_NAME = '自动总结条目';
@@ -921,11 +927,17 @@ export const useGameStore = defineStore('game', () => {
 
   function setFastModeEnabled(enabled: boolean) {
     const nextEnabled = Boolean(enabled);
+    if (!nextEnabled && fastModeBufferActive.value) {
+      error.value = '剧情精简模式正在缓冲行动，请先完成下一次 AI 请求。';
+      return;
+    }
     fastModeEnabled.value = nextEnabled;
     persistFastModeEnabledSetting(nextEnabled);
     if (!nextEnabled) {
       clearFastModeBuffer();
+      return;
     }
+    activateFastModeRuntime();
   }
 
   function syncFloorNumberByArea(mvuData: any) {
@@ -1063,35 +1075,37 @@ export const useGameStore = defineStore('game', () => {
     return syncFloorNumberByArea(result);
   }
 
+  function previewPendingStatDataChangesForFastMode() {
+    if (!fastModeEnabled.value || !pendingStatDataChanges.value) return;
+    try {
+      const base = getFastModeBaseMvuData();
+      const nextMvuData = applyPendingStatDataChangesToMvu(base, pendingStatDataChanges.value);
+      fastModeMvuData.value = _.cloneDeep(nextMvuData);
+      refreshLocalStatData(nextMvuData);
+      persistFastModeBufferToChatVariables();
+      if (fastModeBufferActive.value) {
+        void syncFastModeBufferUserMessage();
+      }
+    } catch (err) {
+      console.warn('[GameStore] previewPendingStatDataChangesForFastMode failed:', err);
+    }
+  }
+
   function clearFastModeBuffer() {
     fastActionEvents.value = [];
     fastModeBaseMessageId.value = null;
+    fastModeBufferUserMessageId.value = null;
     fastModeMvuData.value = null;
     manualHasOptionE.value = false;
     manualHasLeave.value = false;
     persistFastModeBufferToChatVariables();
   }
 
-  function buildPersistedFastModeBuffer(): PersistedFastModeBuffer | null {
-    if (fastActionEvents.value.length === 0 && !fastModeMvuData.value) return null;
-    return {
-      version: 1,
-      baseMessageId: fastModeBaseMessageId.value,
-      events: _.cloneDeep(fastActionEvents.value),
-      mvuData: _.cloneDeep(fastModeMvuData.value),
-    };
-  }
-
   function persistFastModeBufferToChatVariables() {
     try {
-      const payload = buildPersistedFastModeBuffer();
       updateVariablesWith(variables => {
         const nextVariables = _.cloneDeep(variables ?? {});
-        if (payload) {
-          _.set(nextVariables, FAST_MODE_CHAT_VARIABLE_KEY, payload);
-        } else {
-          _.unset(nextVariables, FAST_MODE_CHAT_VARIABLE_KEY);
-        }
+        _.unset(nextVariables, FAST_MODE_CHAT_VARIABLE_KEY);
         return nextVariables;
       }, { type: 'chat' });
     } catch (err) {
@@ -1139,7 +1153,7 @@ export const useGameStore = defineStore('game', () => {
 
       const restoredEvents = normalizePersistedFastActionEvents(payload.events);
       const restoredMvuData = payload.mvuData;
-      if (restoredEvents.length === 0 || !restoredMvuData || typeof restoredMvuData !== 'object') return false;
+      if (!restoredMvuData || typeof restoredMvuData !== 'object') return false;
 
       fastModeBaseMessageId.value = baseMessageId;
       fastActionEvents.value = restoredEvents;
@@ -1155,6 +1169,75 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  function isFastModeBufferMessage(message: unknown): boolean {
+    if (typeof message !== 'string') return false;
+    return message.includes(FAST_MODE_BUFFER_EVENTS_TITLE) && message.includes('以下内容来自剧情精简模式');
+  }
+
+  function getTailFastModeBufferUserMessage(): any | null {
+    const lastId = getLastMessageId();
+    if (lastId < 0) return null;
+    const latestMessages = getChatMessages(`${lastId}-${lastId}`);
+    const latestMessage = latestMessages[0];
+    if (!latestMessage || latestMessage.role !== 'user') return null;
+    return isFastModeBufferMessage(latestMessage.message) ? latestMessage : null;
+  }
+
+  function parseFastActionEventsFromBufferMessage(message: unknown): FastActionEvent[] {
+    if (typeof message !== 'string') return [];
+    const events: FastActionEvent[] = [];
+    let inEventBlock = false;
+    for (const rawLine of message.split(/\r?\n/u)) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      if (line === FAST_MODE_BUFFER_EVENTS_TITLE) {
+        inEventBlock = true;
+        continue;
+      }
+      if (!inEventBlock) continue;
+      if (line.startsWith('【')) break;
+      const match = line.match(/^\d+\.\s*(.+)$/u);
+      if (!match?.[1]) continue;
+      const text = normalizeFastActionText(match[1]);
+      if (!text || text.startsWith('（')) continue;
+      events.push({
+        id: `restored-${events.length}-${Date.now()}`,
+        type: 'action',
+        text,
+        important: true,
+      });
+    }
+    return events;
+  }
+
+  function findLatestAssistantMessageIdBefore(messageId: number): number {
+    if (!Number.isFinite(messageId) || messageId <= 0) return -1;
+    const assistantMessages = getChatMessages(`0-${Math.floor(messageId) - 1}`, { role: 'assistant' });
+    if (assistantMessages.length === 0) return -1;
+    return assistantMessages[assistantMessages.length - 1].message_id;
+  }
+
+  function restoreFastModeBufferFromTailUser(): boolean {
+    const tailMessage = getTailFastModeBufferUserMessage();
+    if (!tailMessage) return false;
+
+    const restoredEvents = parseFastActionEventsFromBufferMessage(tailMessage.message);
+    if (restoredEvents.length === 0) return false;
+
+    const mvuData = Mvu.getMvuData({ type: 'message', message_id: tailMessage.message_id });
+    if (!mvuData || typeof mvuData !== 'object') return false;
+
+    fastModeBufferUserMessageId.value = tailMessage.message_id;
+    const baseMessageId = findLatestAssistantMessageIdBefore(tailMessage.message_id);
+    fastModeBaseMessageId.value = baseMessageId >= 0 ? baseMessageId : null;
+    fastActionEvents.value = restoredEvents;
+    fastModeMvuData.value = _.cloneDeep(mvuData);
+    refreshLocalStatData(fastModeMvuData.value);
+    updateFastModeDisplay();
+    persistFastModeBufferToChatVariables();
+    return true;
+  }
+
   function getFastModeBaseMvuData() {
     if (fastModeMvuData.value) return _.cloneDeep(fastModeMvuData.value);
 
@@ -1163,6 +1246,22 @@ export const useGameStore = defineStore('game', () => {
     const base = lastId >= 0 ? Mvu.getMvuData({ type: 'message', message_id: lastId }) : {};
     fastModeMvuData.value = _.cloneDeep(base ?? {});
     return _.cloneDeep(fastModeMvuData.value);
+  }
+
+  function activateFastModeRuntime() {
+    if (restoreFastModeBufferFromTailUser()) return;
+    if (loadFastModeBufferFromChatVariables()) {
+      void syncFastModeBufferUserMessage();
+      return;
+    }
+    try {
+      const base = getFastModeBaseMvuData();
+      refreshLocalStatData(base);
+      exposeFastModeInteractionButtons();
+      persistFastModeBufferToChatVariables();
+    } catch (err) {
+      console.warn('[GameStore] activateFastModeRuntime failed:', err);
+    }
   }
 
   function applyQueuedPendingChangesToMvu(baseMvuData: any) {
@@ -1203,14 +1302,14 @@ export const useGameStore = defineStore('game', () => {
 
   function updateFastModeDisplay() {
     const lines = fastActionEvents.value.map((event, index) => `${index + 1}. ${normalizeFastActionText(event.text)}`);
-    mainText.value = lines.length > 0 ? `【剧情精简模式】\n${lines.join('\n')}` : mainText.value;
+    mainText.value = lines.length > 0 ? `${FAST_MODE_BUFFER_TITLE}\n${lines.join('\n')}` : mainText.value;
     options.value = [];
     currentSummary.value = lines.join(' ');
     variableUpdateText.value = '';
     exposeFastModeInteractionButtons();
   }
 
-  function queueFastAction(input: string | FastActionInput): boolean {
+  async function queueFastAction(input: string | FastActionInput): Promise<boolean> {
     const payload: FastActionInput = typeof input === 'string' ? { text: input } : input;
     const text = normalizeFastActionText(payload.text);
     if (!fastModeEnabled.value || !text) return false;
@@ -1229,6 +1328,8 @@ export const useGameStore = defineStore('game', () => {
       });
       persistFastModeBufferToChatVariables();
       updateFastModeDisplay();
+      const synced = await syncFastModeBufferUserMessage();
+      if (!synced) return false;
       return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1279,7 +1380,7 @@ export const useGameStore = defineStore('game', () => {
     return [
       '<user>以下内容来自剧情精简模式，均为系统已经结算完成的既成事实。请承认这些事件与最终变量状态，不要回滚、重写、质疑或重新计算它们。',
       '',
-      '【剧情精简模式经过】',
+      FAST_MODE_BUFFER_EVENTS_TITLE,
       eventLines || '（无额外经过）',
       '',
       '【最终状态】',
@@ -1290,14 +1391,62 @@ export const useGameStore = defineStore('game', () => {
     ].join('\n');
   }
 
+  async function syncFastModeBufferUserMessage(finalActionText?: string): Promise<boolean> {
+    if (!fastModeEnabled.value || !fastModeMvuData.value) return false;
+    if (fastActionEvents.value.length === 0 && !finalActionText?.trim()) return false;
+
+    try {
+      const message = buildFastModeFlushPrompt(finalActionText);
+      const data = _.cloneDeep(fastModeMvuData.value);
+      const tailMessage = getTailFastModeBufferUserMessage();
+
+      if (tailMessage) {
+        await setChatMessages(
+          [{ message_id: tailMessage.message_id, role: 'user', message, data }],
+          { refresh: 'none' },
+        );
+        fastModeBufferUserMessageId.value = tailMessage.message_id;
+      } else {
+        await createChatMessages([{ role: 'user', message, data }], { refresh: 'none' });
+        fastModeBufferUserMessageId.value = getLastMessageId();
+      }
+
+      persistFastModeBufferToChatVariables();
+      await ensureLatestMessageWindow();
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[GameStore] syncFastModeBufferUserMessage error:', msg);
+      error.value = `剧情精简模式楼层缓冲失败: ${msg}`;
+      return false;
+    }
+  }
+
   async function flushFastActions(finalActionText?: string): Promise<boolean> {
-    if (!fastModeEnabled.value || fastActionEvents.value.length === 0) {
+    if (!fastModeEnabled.value) {
       if (!finalActionText?.trim()) return false;
       return await sendAction(finalActionText);
     }
 
+    if (fastActionEvents.value.length === 0 && !finalActionText?.trim()) return false;
+
+    const nextMvuData = applyQueuedPendingChangesToMvu(getFastModeBaseMvuData());
+    fastModeMvuData.value = _.cloneDeep(nextMvuData);
+    refreshLocalStatData(nextMvuData);
+
+    if (fastActionEvents.value.length === 0) {
+      const mvuData = _.cloneDeep(fastModeMvuData.value ?? {});
+      const ok = await sendAction(finalActionText, { userMvuDataOverride: mvuData });
+      if (ok) {
+        clearFastModeBuffer();
+      }
+      return ok;
+    }
+
     const prompt = buildFastModeFlushPrompt(finalActionText);
     const mvuData = _.cloneDeep(fastModeMvuData.value ?? {});
+    const synced = await syncFastModeBufferUserMessage(finalActionText);
+    if (!synced) return false;
     const ok = await sendAction(prompt, { userMvuDataOverride: mvuData });
     if (ok) {
       clearFastModeBuffer();
@@ -1318,7 +1467,9 @@ export const useGameStore = defineStore('game', () => {
       if (lastId >= 0) {
         loadLatestAssistantState();
         loadStatData();
-        loadFastModeBufferFromChatVariables();
+        if (fastModeEnabled.value) {
+          activateFastModeRuntime();
+        }
         await ensureLatestMessageWindow();
         if (!autoSummaryEnabled.value) {
           await overwriteAutoSummaryEntryContent('');
@@ -1517,6 +1668,10 @@ export const useGameStore = defineStore('game', () => {
       // 10. 刷新本地 stat_data
       refreshLocalStatData(newMvuData);
       const newAssistantMessageId = getLastMessageId();
+      if (fastModeEnabled.value && !fastModeBufferActive.value) {
+        fastModeBaseMessageId.value = newAssistantMessageId >= 0 ? newAssistantMessageId : null;
+        fastModeMvuData.value = _.cloneDeep(newMvuData);
+      }
       await updateAutoSummaryChronicle(newAssistantMessageId, parsed.summary);
       await ensureLatestMessageWindow();
       console.info('[GameStore] Action completed successfully');
@@ -1574,8 +1729,6 @@ export const useGameStore = defineStore('game', () => {
 
     const messages = getChatMessages(`0-${lastId}`, { role: 'assistant' });
     for (const msg of messages) {
-      if (msg.message_id >= lastId) continue;
-
       const summary = extractSummary(msg.message, getResponseParserOptions());
       if (summary) {
         entries.push({
@@ -1595,8 +1748,16 @@ export const useGameStore = defineStore('game', () => {
 
     try {
       const lastId = getLastMessageId();
-      if (targetMessageId >= lastId) {
-        console.warn('[GameStore] Cannot rollback: target is current or future');
+      if (targetMessageId > lastId) {
+        console.warn('[GameStore] Cannot rollback: target is future');
+        return;
+      }
+
+      if (targetMessageId === lastId) {
+        clearFastModeBuffer();
+        loadLatestAssistantState();
+        loadStatData();
+        await ensureLatestMessageWindow();
         return;
       }
 
@@ -1824,6 +1985,24 @@ export const useGameStore = defineStore('game', () => {
         return false;
       }
 
+      if (fastModeEnabled.value) {
+        const nextMvuData = getFastModeBaseMvuData();
+        if (!nextMvuData.stat_data || typeof nextMvuData.stat_data !== 'object') {
+          nextMvuData.stat_data = {};
+        }
+
+        Object.assign(nextMvuData.stat_data, _.cloneDeep(fields));
+        syncFloorNumberByArea(nextMvuData);
+        fastModeMvuData.value = _.cloneDeep(nextMvuData);
+        refreshLocalStatData(nextMvuData);
+        exposeFastModeInteractionButtons();
+        persistFastModeBufferToChatVariables();
+        if (fastModeBufferActive.value) {
+          await syncFastModeBufferUserMessage();
+        }
+        return true;
+      }
+
       const currentMvuData = Mvu.getMvuData({ type: 'message', message_id: lastId });
       const nextMvuData = _.cloneDeep(currentMvuData ?? {});
       if (!nextMvuData.stat_data || typeof nextMvuData.stat_data !== 'object') {
@@ -1855,6 +2034,7 @@ export const useGameStore = defineStore('game', () => {
     summaryVisibleWindow,
     buttonCompletionEnabled,
     fastModeEnabled,
+    fastModeBufferActive,
     fastActionEvents,
     streamingText,
     error,

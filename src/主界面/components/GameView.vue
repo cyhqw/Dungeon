@@ -1793,10 +1793,11 @@
                   <button
                     type="button"
                     class="settings-switch sm:shrink-0"
-                    :class="{ 'is-on': isFastModeEnabled }"
+                    :class="{ 'is-on': isFastModeEnabled, 'is-disabled': isFastModeLocked }"
                     :aria-checked="isFastModeEnabled"
+                    :disabled="isFastModeLocked"
                     role="switch"
-                    @click="isFastModeEnabled = !isFastModeEnabled"
+                    @click="toggleFastModeSetting"
                   >
                     <span class="settings-switch-track">
                       <span class="settings-switch-label settings-switch-label--off">关</span>
@@ -5088,6 +5089,12 @@ const isFastModeEnabled = computed<boolean>({
   set: value => gameStore.setFastModeEnabled(value),
 });
 
+const isFastModeLocked = computed(() => gameStore.fastModeBufferActive);
+const toggleFastModeSetting = () => {
+  if (isFastModeLocked.value) return;
+  isFastModeEnabled.value = !isFastModeEnabled.value;
+};
+
 watch(isButtonCompletionEnabled, enabled => {
   if (!enabled) {
     closeOptionCompletionMenu();
@@ -6263,7 +6270,37 @@ const ROOM_TYPE_CONFIG: Record<string, RoomConfig> = {
   },
 };
 
+const consumedSpecialRoomFingerprint = ref('');
+
+const currentSpecialRoomFingerprint = computed(() => {
+  const sd = gameStore.statData as Record<string, any>;
+  const stats = sd.$统计 && typeof sd.$统计 === 'object' ? (sd.$统计 as Record<string, any>) : {};
+  const path = Array.isArray(sd.$路径)
+    ? sd.$路径.filter((item): item is string => typeof item === 'string').join('>')
+    : '';
+  return [
+    String(sd._当前区域 ?? '').trim(),
+    String(sd._当前房间类型 ?? '').trim(),
+    String(stats.当前层已过房间 ?? ''),
+    String(sd._楼层数 ?? '').trim(),
+    String(sd._对手名称 ?? '').trim(),
+    path,
+  ].join('|');
+});
+
+const isCurrentSpecialConsumed = computed(
+  () =>
+    Boolean(consumedSpecialRoomFingerprint.value)
+    && consumedSpecialRoomFingerprint.value === currentSpecialRoomFingerprint.value,
+);
+
+const markCurrentSpecialConsumed = () => {
+  consumedSpecialRoomFingerprint.value = currentSpecialRoomFingerprint.value;
+  gameStore.hideManualButtonCompletion('special');
+};
+
 const currentRoomSpecialOptionConfig = computed<RoomConfig | null>(() => {
+  if (isCurrentSpecialConsumed.value) return null;
   if (isTreasureRoomContext.value) return ROOM_TYPE_CONFIG['宝箱房'];
   if (isShopContext.value) return ROOM_TYPE_CONFIG['商店房'];
   const roomType = gameStore.statData._当前房间类型 as string;
@@ -6373,7 +6410,7 @@ const submitGameAction = async (text: string, targetRoomType: string, type = 'ac
     return;
   }
 
-  const queued = gameStore.queueFastAction({ type, text });
+  const queued = await gameStore.queueFastAction({ type, text });
   if (!queued) {
     await gameStore.sendAction(text);
     return;
@@ -6384,7 +6421,10 @@ const submitGameAction = async (text: string, targetRoomType: string, type = 'ac
   }
 };
 
-const sendCombatNarrativeOnce = (narrative: { id: string; context?: CombatContext }, text: string) => {
+const sendCombatNarrativeOnce = (
+  narrative: { id: string; context?: CombatContext; outcome?: CombatOutcome },
+  text: string,
+) => {
   if (dispatchedCombatNarrativeIds.has(narrative.id)) return;
   if (gameStore.isGenerating) return;
   dispatchedCombatNarrativeIds.add(narrative.id);
@@ -6392,11 +6432,14 @@ const sendCombatNarrativeOnce = (narrative: { id: string; context?: CombatContex
   if (
     gameStore.fastModeEnabled &&
     narrative.context !== 'shopRobbery' &&
-    narrative.context !== 'combatTest' &&
-    !isFastModeSyncRoomType(roomType)
+    narrative.context !== 'combatTest'
   ) {
-    gameStore.queueFastAction({ type: 'battle', text });
-    gameStore.hideManualButtonCompletion('special');
+    if (narrative.outcome === 'lose' || isFastModeSyncRoomType(roomType)) {
+      void gameStore.flushFastActions(text);
+      return;
+    }
+    void gameStore.queueFastAction({ type: 'battle', text });
+    markCurrentSpecialConsumed();
     return;
   }
   gameStore.sendAction(text);
@@ -6835,7 +6878,7 @@ const exitShop = () => {
   const purchasedText = purchased.map(item => `${item.name}（${item.rarity}）`).join('，');
   const purchaseText = `<user>从沐芯兰处购买了${purchasedText}，总共花费${total}枚金币。`;
   if (gameStore.fastModeEnabled) {
-    gameStore.queueFastAction({ type: 'shopBuy', text: purchaseText });
+    void gameStore.queueFastAction({ type: 'shopBuy', text: purchaseText });
     return;
   }
   gameStore.sendAction(purchaseText);
@@ -6954,7 +6997,7 @@ const useHotSpringCleanse = async () => {
   );
   gameStore.setPendingStatDataChanges({ $负面状态: retainedNegativeStatuses });
   await submitGameAction(HOT_SPRING_CLEANSE_ACTION_TEXT, '温泉房', 'spring');
-  gameStore.hideManualButtonCompletion('special');
+  markCurrentSpecialConsumed();
 };
 
 onUnmounted(() => {
@@ -7369,7 +7412,7 @@ const startCombatFromSpecialOption = async () => {
 };
 
 const handleSpecialOption = async () => {
-  gameStore.hideManualButtonCompletion('special');
+  markCurrentSpecialConsumed();
   if (isTreasureRoomContext.value) {
     openChestView();
     return;
@@ -11379,6 +11422,12 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
+.settings-switch:disabled,
+.settings-switch.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .settings-switch:focus-visible {
   outline: none;
 }
@@ -11402,8 +11451,8 @@ onBeforeUnmount(() => {
     box-shadow 0.18s ease;
 }
 
-.settings-switch:hover .settings-switch-track,
-.settings-switch:focus-visible .settings-switch-track {
+.settings-switch:hover:not(:disabled) .settings-switch-track,
+.settings-switch:focus-visible:not(:disabled) .settings-switch-track {
   border-color: rgba(251, 191, 36, 0.54);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),

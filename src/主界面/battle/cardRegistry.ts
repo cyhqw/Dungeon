@@ -1278,7 +1278,7 @@ const 回升: CardData = {
   description: '恢复1点生命，获得1层流血，连击，过牌',
 };
 
-/** 血之刃：自身流血+2，按已损生命额外加伤 */
+/** 血之刃：自身流血+3，按已损生命额外加伤 */
 const 血之刃: CardData = {
   id: 'bloodpool_blood_blade',
   name: '血之刃',
@@ -1291,9 +1291,9 @@ const 血之刃: CardData = {
   hitCount: 1,
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [
-    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'self', valueMode: 'fixed', fixedValue: 3 },
   ],
-  description: '为自身施加2层流血，造成1倍点数伤害，自身每损失1点生命值伤害+1',
+  description: '为自身施加3层流血，造成1倍点数伤害，自身每损失1点生命值伤害+2',
 };
 
 /** 逆刃：获得坚固，并在本回合受击时施加流血 */

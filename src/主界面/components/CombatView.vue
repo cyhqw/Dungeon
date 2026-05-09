@@ -7858,10 +7858,10 @@ const resolveCombat = async (
         log(`<span class="text-rose-300">${label}【${card.name}】本场已受伤 ${painFeedbackTakenHits} 次，本次伤害 +${painFeedbackBonus}</span>`);
       }
       const bloodBladeBonus = card.id === 'bloodpool_blood_blade'
-        ? getLostHp(attacker)
+        ? getLostHp(attacker) * 2
         : 0;
       if (card.id === 'bloodpool_blood_blade' && bloodBladeBonus > 0) {
-        log(`<span class="text-rose-300">${label}【${card.name}】当前已损失 ${bloodBladeBonus} 点生命，本次伤害 +${bloodBladeBonus}</span>`);
+        log(`<span class="text-rose-300">${label}【${card.name}】按已损生命追加伤害，本次伤害 +${bloodBladeBonus}</span>`);
       }
       if (card.id === 'enemy_mask_attendant_forced_invitation' && targetHasBindBeforeOnUse) {
         log(`<span class="text-fuchsia-300">${label}【${card.name}】目标已束缚：本次伤害翻倍，并将在命中后追加1层易伤</span>`);
