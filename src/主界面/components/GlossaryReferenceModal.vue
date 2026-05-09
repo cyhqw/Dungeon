@@ -338,49 +338,80 @@
         </div>
 
         <div v-if="unlockedEffectEntries.length > 0">
-          <div class="glossary-reference-status-index" aria-label="状态索引">
-            <button
-              v-for="entry in unlockedEffectEntries"
-              :key="`index-${entry.type}`"
-              type="button"
-              class="glossary-reference-status-index-btn"
-              @click="scrollToStatus(entry.type)"
+          <div
+            v-if="referenceLayout === 'readable'"
+            class="glossary-reference-status-index"
+            aria-label="状态索引"
+          >
+            <div
+              v-for="group in unlockedEffectGroups"
+              :key="`index-group-${group.polarity}`"
+              class="glossary-reference-status-index-group"
+              :class="toneClass(group.polarity)"
             >
-              <span class="glossary-reference-status-index-icon">
-                <i
-                  v-if="entry.faClass"
-                  :class="[entry.faClass, 'text-[12px] leading-none']"
-                  :style="entry.faStyle"
-                  aria-hidden="true"
-                ></i>
-                <span v-else>{{ entry.name.slice(0, 1) }}</span>
-              </span>
-              <span>{{ entry.name }}</span>
-            </button>
+              <div class="glossary-reference-status-index-label">{{ group.label }}</div>
+              <div class="glossary-reference-status-index-list">
+                <button
+                  v-for="entry in group.entries"
+                  :key="`index-${entry.type}`"
+                  type="button"
+                  class="glossary-reference-status-index-btn"
+                  @click="scrollToStatus(entry.type)"
+                >
+                  <span class="glossary-reference-status-index-icon">
+                    <i
+                      v-if="entry.faClass"
+                      :class="[entry.faClass, 'text-[12px] leading-none']"
+                      :style="entry.faStyle"
+                      aria-hidden="true"
+                    ></i>
+                    <span v-else>{{ entry.name.slice(0, 1) }}</span>
+                  </span>
+                  <span>{{ entry.name }}</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div class="glossary-reference-grid" :class="{ 'is-readable': referenceLayout === 'readable' }">
-            <article
-              v-for="entry in unlockedEffectEntries"
-              :id="statusEntryId(entry.type)"
-              :key="entry.type"
-              class="glossary-reference-card"
-              :class="toneClass(entry.polarity)"
+          <div class="glossary-reference-status-groups">
+            <section
+              v-for="group in unlockedEffectGroups"
+              :key="group.polarity"
+              class="glossary-reference-status-group"
+              :class="toneClass(group.polarity)"
             >
-              <div class="glossary-reference-effect-title">
-                <span class="glossary-reference-effect-icon">
-                  <i
-                    v-if="entry.faClass"
-                    :class="[entry.faClass, 'text-[14px] leading-none']"
-                    :style="entry.faStyle"
-                    aria-hidden="true"
-                  ></i>
-                  <span v-else>{{ entry.name.slice(0, 1) }}</span>
-                </span>
-                <span>{{ entry.name }}</span>
+              <div class="glossary-reference-status-group-head">
+                <div>
+                  <div class="glossary-reference-status-group-title">{{ group.label }}</div>
+                  <div class="glossary-reference-status-group-desc">{{ group.description }}</div>
+                </div>
+                <span class="glossary-reference-status-group-count">{{ group.entries.length }}</span>
               </div>
-              <p class="glossary-reference-card-desc">{{ entry.description || '暂无说明' }}</p>
-            </article>
+
+              <div class="glossary-reference-grid" :class="{ 'is-readable': referenceLayout === 'readable' }">
+                <article
+                  v-for="entry in group.entries"
+                  :id="statusEntryId(entry.type)"
+                  :key="entry.type"
+                  class="glossary-reference-card"
+                  :class="toneClass(entry.polarity)"
+                >
+                  <div class="glossary-reference-effect-title">
+                    <span class="glossary-reference-effect-icon">
+                      <i
+                        v-if="entry.faClass"
+                        :class="[entry.faClass, 'text-[14px] leading-none']"
+                        :style="entry.faStyle"
+                        aria-hidden="true"
+                      ></i>
+                      <span v-else>{{ entry.name.slice(0, 1) }}</span>
+                    </span>
+                    <span>{{ entry.name }}</span>
+                  </div>
+                  <p class="glossary-reference-card-desc">{{ entry.description || '暂无说明' }}</p>
+                </article>
+              </div>
+            </section>
           </div>
         </div>
         <div v-else class="glossary-reference-empty">
@@ -404,6 +435,14 @@ defineEmits<{ close: [] }>();
 
 type ReferenceTab = 'tutorial' | 'terms' | 'status';
 type ReferenceLayout = 'compact' | 'readable';
+type EffectStatusEntry = {
+  type: string;
+  name: string;
+  description: string;
+  polarity: EffectPolarity;
+  faClass: string | null;
+  faStyle: Record<string, string> | undefined;
+};
 
 const tabs: Array<{ id: ReferenceTab; label: string }> = [
   { id: 'tutorial', label: '战斗教程' },
@@ -412,6 +451,13 @@ const tabs: Array<{ id: ReferenceTab; label: string }> = [
 ];
 const activeTab = ref<ReferenceTab>('tutorial');
 const referenceLayout = ref<ReferenceLayout>('compact');
+const statusGroupDefinitions: Array<{ polarity: EffectPolarity; label: string; description: string }> = [
+  { polarity: 'buff', label: '增益状态', description: '强化自身资源、点数、防御或后续行动的正向效果。' },
+  { polarity: 'debuff', label: '负面状态', description: '削弱目标、持续伤害、限制行动或制造后续风险。' },
+  { polarity: 'mixed', label: '双面状态', description: '同时带来收益与代价，需要结合当前局势判断。' },
+  { polarity: 'special', label: '特殊机制', description: '拥有独立规则或战斗流程影响的状态。' },
+  { polarity: 'trait', label: '特性标记', description: '用于记录敌人、场景或特殊规则的长期标记。' },
+];
 const tutorialSections = ['界面速览', '卡牌类型', '拼点机制', '主动技能', '状态栏'];
 const cardTypeGuides = [
   { name: '物理', tone: 'physical', cost: '0', icon: 'fa-solid fa-khanda', short: '直接攻击，常靠点数胜负。' },
@@ -487,6 +533,15 @@ const unlockedEffectEntries = computed(() => (
       if (orderComp !== 0) return orderComp;
       return a.name.localeCompare(b.name, 'zh-Hans-CN');
     })
+));
+
+const unlockedEffectGroups = computed(() => (
+  statusGroupDefinitions
+    .map(group => ({
+      ...group,
+      entries: unlockedEffectEntries.value.filter(entry => entry.polarity === group.polarity),
+    }))
+    .filter(group => group.entries.length > 0)
 ));
 
 const tutorialEffectNames = ['寒冷', '燃烧', '中毒', '易伤', '虚弱', '流血'];
@@ -736,11 +791,82 @@ watch(
   line-height: 1.7;
 }
 
+.glossary-reference-status-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.88rem;
+}
+
+.glossary-reference-status-group {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left-width: 3px;
+  border-radius: 0.5rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 34%),
+    rgba(0, 0, 0, 0.14);
+  padding: 0.72rem;
+}
+
+.glossary-reference-status-group-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.62rem;
+}
+
+.glossary-reference-status-group-title {
+  color: rgba(255, 247, 237, 0.96);
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.glossary-reference-status-group-desc {
+  margin-top: 0.12rem;
+  color: rgba(253, 230, 138, 0.58);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.glossary-reference-status-group-count {
+  min-width: 1.65rem;
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.24);
+  color: rgba(253, 230, 138, 0.86);
+  font-size: 0.68rem;
+  line-height: 1.18rem;
+  text-align: center;
+}
+
 .glossary-reference-status-index {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.88rem;
+  border: 1px solid rgba(251, 191, 36, 0.16);
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.16);
+  padding: 0.58rem;
+}
+
+.glossary-reference-status-index-group {
+  border-left: 3px solid rgba(251, 191, 36, 0.72);
+  padding-left: 0.52rem;
+}
+
+.glossary-reference-status-index-label {
+  margin-bottom: 0.34rem;
+  color: rgba(254, 243, 199, 0.9);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.glossary-reference-status-index-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.42rem;
-  margin-bottom: 0.78rem;
 }
 
 .glossary-reference-status-index-btn {
@@ -800,6 +926,15 @@ watch(
   .glossary-reference-status-index-btn {
     min-height: 2.2rem;
     font-size: 0.82rem;
+  }
+
+  .glossary-reference-status-group {
+    padding: 0.68rem;
+  }
+
+  .glossary-reference-status-group-head {
+    flex-direction: column;
+    gap: 0.38rem;
   }
 }
 
