@@ -1,5 +1,5 @@
 <template>
-  <div ref="viewportRef" class="ui-viewport">
+  <div ref="viewportRef" class="ui-viewport" :style="viewportStyle">
     <div class="ui-stage" :style="stageStyle">
       <div class="ui-stage-content w-full h-full bg-[#050505] font-body text-dungeon-paper overflow-hidden relative">
         <!-- Dynamic Background -->
@@ -3361,9 +3361,31 @@ const viewportRef = ref<HTMLElement | null>(null);
 const storyTextContainerRef = ref<HTMLElement | null>(null);
 const viewportWidth = ref(STAGE_BASE_WIDTH);
 const viewportHeight = ref(STAGE_BASE_HEIGHT);
+const stableViewportHeight = ref<number | null>(null);
 const isTouchViewport = ref(false);
 const landscapeHintDismissed = ref(false);
 let viewportResizeObserver: ResizeObserver | null = null;
+const KEYBOARD_VIEWPORT_SHRINK_THRESHOLD = 120;
+
+const isTextInputElement = (element: Element | null): boolean => {
+  if (!element) return false;
+  if (element instanceof HTMLTextAreaElement) return true;
+  if (element instanceof HTMLInputElement) {
+    const type = element.type.toLowerCase();
+    return !['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit'].includes(type);
+  }
+  return element instanceof HTMLElement && element.isContentEditable;
+};
+
+const isSoftKeyboardViewportShrink = (heightCandidate: number): boolean => {
+  if (typeof window === 'undefined') return false;
+  if (!window.matchMedia('(pointer: coarse)').matches) return false;
+  if (!isTextInputElement(document.activeElement)) return false;
+
+  const baselineHeight = stableViewportHeight.value ?? viewportHeight.value;
+  const visualHeight = window.visualViewport?.height ?? heightCandidate;
+  return baselineHeight - Math.min(heightCandidate, visualHeight) > KEYBOARD_VIEWPORT_SHRINK_THRESHOLD;
+};
 
 const updateViewportMetrics = () => {
   if (typeof window === 'undefined') return;
@@ -3373,6 +3395,8 @@ const updateViewportMetrics = () => {
   const docWidth = docEl?.clientWidth ?? 0;
   const docHeight = docEl?.clientHeight ?? 0;
   const visualViewport = window.visualViewport;
+  const heightCandidate = docHeight > 0 ? docHeight : (visualViewport?.height ?? window.innerHeight);
+  const keepStableHeight = isSoftKeyboardViewportShrink(heightCandidate);
 
   viewportWidth.value =
     viewportRect && viewportRect.width > 0
@@ -3380,16 +3404,19 @@ const updateViewportMetrics = () => {
       : docWidth > 0
         ? docWidth
         : (visualViewport?.width ?? window.innerWidth);
-  viewportHeight.value =
-    viewportRect && viewportRect.height > 0
-      ? viewportRect.height
-      : docHeight > 0
-        ? docHeight
-        : (visualViewport?.height ?? window.innerHeight);
+  if (keepStableHeight) {
+    viewportHeight.value = stableViewportHeight.value ?? viewportHeight.value;
+  } else {
+    viewportHeight.value = heightCandidate;
+    stableViewportHeight.value = heightCandidate;
+  }
   isTouchViewport.value = window.matchMedia('(pointer: coarse)').matches;
 };
 const handleViewportResize = () => {
   updateViewportMetrics();
+};
+const handleViewportFocusOut = () => {
+  window.setTimeout(updateViewportMetrics, 120);
 };
 const stageScale = computed(() => {
   if (viewportWidth.value <= 0 || viewportHeight.value <= 0) return 1;
@@ -3398,6 +3425,14 @@ const stageScale = computed(() => {
 const stageStyle = computed(() => ({
   transform: `translate(-50%, -50%) scale(${stageScale.value})`,
 }));
+const viewportStyle = computed(() => {
+  const height = stableViewportHeight.value;
+  if (!height) return {};
+  return {
+    height: `${height}px`,
+    minHeight: `${height}px`,
+  };
+});
 const currentTavernFloorNumber = computed<number>(() => {
   // 绑定到 gameStore 的响应式状态，确保消息刷新时会重新取最新 message_id
   void gameStore.mainText;
@@ -4877,6 +4912,7 @@ const EXCLUDED_VICTORY_REWARD_CARD_IDS = new Set<string>([
   'alchemy_enhanced_thunder_potion',
   'alchemy_enhanced_recovery_potion',
   'alchemy_mixed_potion',
+  'alchemy_enhanced_mixed_potion',
 ]);
 const EXCLUDED_VICTORY_REWARD_ACTIVE_SKILL_IDS = new Set<string>([
   'active_basic_reroll_self',
@@ -7244,6 +7280,8 @@ const ALCHEMY_BASE_POTION_TO_ENHANCED: Record<string, string> = {
 const ALCHEMY_BASE_POTION_NAMES = new Set(Object.keys(ALCHEMY_BASE_POTION_TO_ENHANCED));
 const ALCHEMY_EMPOWER_POTION_NAME = '增效药剂';
 const ALCHEMY_WASTE_NAME = '炼金废料';
+const ALCHEMY_MIXED_POTION_NAME = '混合药剂';
+const ALCHEMY_ENHANCED_MIXED_POTION_NAME = '增效混合药剂';
 
 const resolveAlchemyFusionName = (rewardCard: CardData, deckCard: CardData | null): string | null => {
   if (!deckCard) return null;
@@ -7255,13 +7293,15 @@ const resolveAlchemyFusionName = (rewardCard: CardData, deckCard: CardData | nul
   const deckIsEmpower = deckName === ALCHEMY_EMPOWER_POTION_NAME;
 
   if (rewardIsEmpower && deckIsEmpower) return '催化剂';
-  if (rewardIsEmpower && deckName === ALCHEMY_WASTE_NAME) return '混合药剂';
-  if (deckIsEmpower && rewardName === ALCHEMY_WASTE_NAME) return '混合药剂';
+  if (rewardIsEmpower && (deckName === ALCHEMY_WASTE_NAME || deckName === ALCHEMY_MIXED_POTION_NAME))
+    return ALCHEMY_ENHANCED_MIXED_POTION_NAME;
+  if (deckIsEmpower && (rewardName === ALCHEMY_WASTE_NAME || rewardName === ALCHEMY_MIXED_POTION_NAME))
+    return ALCHEMY_ENHANCED_MIXED_POTION_NAME;
   if (rewardIsEmpower && deckIsBasePotion) return ALCHEMY_BASE_POTION_TO_ENHANCED[deckName] ?? null;
   if (deckIsEmpower && rewardIsBasePotion) return ALCHEMY_BASE_POTION_TO_ENHANCED[rewardName] ?? null;
   if (rewardIsBasePotion && deckIsBasePotion) {
     if (rewardName === deckName) return ALCHEMY_BASE_POTION_TO_ENHANCED[rewardName] ?? null;
-    return ALCHEMY_WASTE_NAME;
+    return ALCHEMY_MIXED_POTION_NAME;
   }
   return null;
 };
@@ -8560,6 +8600,7 @@ onMounted(() => {
     window.addEventListener('resize', handleViewportResize, { passive: true });
     window.addEventListener('orientationchange', handleViewportResize, { passive: true });
     window.visualViewport?.addEventListener('resize', handleViewportResize, { passive: true });
+    window.addEventListener('focusout', handleViewportFocusOut, { passive: true });
     document.addEventListener('fullscreenchange', handleViewportResize);
     document.addEventListener('pointerdown', handleButtonCompletionOutsidePointerDown);
     inputWaitingDotsTimer = window.setInterval(() => {
@@ -9507,6 +9548,7 @@ onBeforeUnmount(() => {
     window.removeEventListener('resize', handleViewportResize);
     window.removeEventListener('orientationchange', handleViewportResize);
     window.visualViewport?.removeEventListener('resize', handleViewportResize);
+    window.removeEventListener('focusout', handleViewportFocusOut);
     document.removeEventListener('fullscreenchange', handleViewportResize);
     document.removeEventListener('pointerdown', handleButtonCompletionOutsidePointerDown);
     if (inputWaitingDotsTimer !== null) {
@@ -9545,9 +9587,7 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100vw;
   height: 100vh;
-  height: 100dvh;
   min-height: 100vh;
-  min-height: 100dvh;
   overflow: hidden;
   background: #050505;
 }
@@ -9883,7 +9923,6 @@ onBeforeUnmount(() => {
 @media (hover: hover) and (pointer: fine) {
   .ui-viewport {
     min-height: max(100vh, 56.25vw);
-    min-height: max(100dvh, 56.25vw);
   }
 }
 

@@ -1657,7 +1657,8 @@ const 增效回复药剂: CardData = {
   description: '回复0.5倍点数生命与魔力，连击',
 };
 
-const 混合药剂 = 创建药剂('alchemy_mixed_potion', '混合药剂', EffectType.ELEMENT_ATTACH, '元素附加', { rare: true, combo: true });
+const 混合药剂 = 创建药剂('alchemy_mixed_potion', '混合药剂', EffectType.ELEMENT_ATTACH, '元素附加', { rare: true, firstCombo: true });
+const 增效混合药剂 = 创建药剂('alchemy_enhanced_mixed_potion', '增效混合药剂', EffectType.ELEMENT_ATTACH, '元素附加', { rare: true, combo: true });
 
 const 催化剂: CardData = {
   id: 'alchemy_catalyst',
@@ -7860,6 +7861,7 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [增效雷霆药剂.name, 增效雷霆药剂],
   [增效回复药剂.name, 增效回复药剂],
   [混合药剂.name, 混合药剂],
+  [增效混合药剂.name, 增效混合药剂],
   [催化剂.name, 催化剂],
   [魔女香水.name, 魔女香水],
   [大炼成.name, 大炼成],
