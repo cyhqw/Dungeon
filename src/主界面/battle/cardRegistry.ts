@@ -441,7 +441,7 @@ const 回声回灌: CardData = {
   type: CardType.MAGIC,
   category: '魔导',
   rarity: '普通',
-  manaCost: 3,
+  manaCost: 2,
   calculation: { multiplier: 1.0, addition: 0 },
   damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
   hitCount: 1,

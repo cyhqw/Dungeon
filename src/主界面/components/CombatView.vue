@@ -82,25 +82,6 @@
         <span class="text-xs text-white/60 tracking-widest">回合</span>
         <span class="text-lg font-heading font-bold text-white/90">{{ combatState.turn }}</span>
         <div
-          class="mt-1.5 w-44 relative pointer-events-auto"
-          :style="fatigueBarStyle"
-          @mouseenter="showFatigueHelp"
-          @mouseleave="hideFatigueHelp"
-        >
-          <div class="h-1.5 rounded-full border border-amber-400/35 bg-black/45 overflow-hidden">
-            <div
-              class="h-full bg-gradient-to-r from-amber-400 via-orange-400 to-red-500 transition-all duration-500"
-              :style="withTransition({ width: `${fatigueDegreePercent}%` }, 500)"
-            ></div>
-          </div>
-          <div
-            v-if="fatigueHelpVisible && fatigueDegree > 50"
-            class="absolute left-1/2 top-full mt-1.5 -translate-x-1/2 w-64 rounded-md border border-amber-300/35 bg-black/80 px-2 py-1 text-[10px] leading-relaxed text-amber-100 text-left shadow-lg"
-          >
-            当前疲劳度：{{ fatigueDegree }}/300。进入战斗 +10，出牌 +1。达到200后每回合附加疲劳并额外附加中毒，300时直接战败。
-          </div>
-        </div>
-        <div
           v-if="isTwinBattle"
           class="mt-2 w-44 relative pointer-events-auto"
           :style="dreamControlBarStyle"
@@ -180,7 +161,10 @@
             </div>
             <div
               class="scale-[1.3] origin-top-left shadow-[0_0_20px_rgba(200,120,0,0.15)]"
-              :class="entry.slot === 1 ? 'rotate-[-3deg]' : 'rotate-[3deg]'"
+              :class="[
+                entry.slot === 1 ? 'rotate-[-3deg]' : 'rotate-[3deg]',
+                isCardShaking(entry.card) ? 'invalid-card-shake' : '',
+              ]"
             >
               <DungeonCard
                 :card="entry.card"
@@ -1498,8 +1482,6 @@ interface DicePreviewPanel {
 }
 
 const SPEED_SETTING_KEY = 'dungeon.combat.speed_up';
-const FATIGUE_DEGREE_KEY = 'dungeon.combat.fatigue_degree';
-const FATIGUE_DEGREE_MAX = 300;
 const DREAM_CONTROL_MIN = 0;
 const DREAM_CONTROL_MAX = 99;
 const DREAM_CONTROL_INITIAL = 50;
@@ -1560,30 +1542,13 @@ const normalizeNegativeStatusList = (value: unknown): string[] => {
 const PLAYER_POISON_LETHAL_NEGATIVE_STATUS = '[催淫]';
 const PLAYER_SHOCK_LETHAL_NEGATIVE_STATUS = '[神经肌肉失调]';
 const PLAYER_CORROSION_LETHAL_NEGATIVE_STATUS = '[被侵蚀]';
-const fatigueDegree = ref(0);
-const fatigueHelpVisible = ref(false);
 const dreamControlPercent = ref(DREAM_CONTROL_INITIAL);
 const dreamControlHelpVisible = ref(false);
 const twinEnemyIntentCards = ref<[CardData | null, CardData | null]>([null, null]);
 const twinEnemyConsumedSlots = ref<[boolean, boolean]>([false, false]);
 const twinPlayerSelectedCards = ref<[CardData | null, CardData | null]>([null, null]);
 const twinDirectComboResolving = ref(false);
-const fatigueDegreeRatio = computed(() => (
-  Math.max(0, Math.min(fatigueDegree.value / FATIGUE_DEGREE_MAX, 1))
-));
-const fatigueDegreePercent = computed(() => fatigueDegreeRatio.value * 100);
-const fatigueBarOpacityRatio = computed(() => {
-  if (fatigueDegree.value <= 50) return 0;
-  return Math.max(0, Math.min((fatigueDegree.value - 50) / (FATIGUE_DEGREE_MAX - 50), 1));
-});
-const fatigueBarStyle = computed(() => ({ opacity: String(fatigueBarOpacityRatio.value) }));
 const dreamControlBarStyle = computed(() => ({ opacity: isTwinBattle ? '1' : '0' }));
-const showFatigueHelp = () => {
-  fatigueHelpVisible.value = fatigueDegree.value > 50;
-};
-const hideFatigueHelp = () => {
-  fatigueHelpVisible.value = false;
-};
 const showDreamControlHelp = () => {
   dreamControlHelpVisible.value = isTwinBattle;
 };
@@ -1797,29 +1762,6 @@ let endCombatSequenceToken = 0;
 let enemyManaLackHintTurn = -1;
 const handCardKeys = new WeakMap<CardData, string>();
 const invalidCardShakeKeys = ref<Set<string>>(new Set());
-
-const normalizePersistedInt = (value: unknown): number => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 0;
-  return Math.max(0, Math.floor(parsed));
-};
-
-const setFatigueDegree = (next: number) => {
-  const normalized = normalizePersistedInt(next);
-  fatigueDegree.value = normalized;
-  localStorage.setItem(FATIGUE_DEGREE_KEY, String(normalized));
-};
-
-const loadFatigueDegree = () => {
-  const stored = localStorage.getItem(FATIGUE_DEGREE_KEY);
-  setFatigueDegree(normalizePersistedInt(stored ?? 0));
-};
-
-const addFatigueDegree = (delta: number) => {
-  const amount = Math.max(0, Math.floor(delta));
-  if (amount <= 0) return;
-  setFatigueDegree(fatigueDegree.value + amount);
-};
 
 // Default relic modifiers (no relics yet)
 const NO_RELIC_MOD = { globalMultiplier: 1, globalAddition: 0 };
@@ -3027,6 +2969,16 @@ const triggerInvalidCardShake = (card: CardData) => {
   });
 };
 
+const triggerEnemyIntentInvalidShake = (slotIndex?: 1 | 2, fallbackCard?: CardData) => {
+  const intentCard = slotIndex
+    ? twinEnemyIntentCards.value[slotIndex - 1]
+    : combatState.value.enemyIntentCard;
+  const card = intentCard ?? combatState.value.enemyIntentCard ?? fallbackCard ?? null;
+  if (!card || card.id === PASS_CARD.id) return;
+  triggerInvalidCardShake(card);
+  setTimeout(() => triggerInvalidCardShake(card), scaleDuration(390));
+};
+
 const resolveTargetSide = (source: BattleSide, target: 'self' | 'enemy') => {
   if (target === 'self') return source;
   return source === 'player' ? 'enemy' : 'player';
@@ -4106,37 +4058,6 @@ const applyImmediatePoisonAmountLethalCheck = (side: BattleSide) => {
   if (side === 'player' && actualDamage > 0 && target.hp <= 0) {
     queuePlayerLethalNegativeStatus(PLAYER_POISON_LETHAL_NEGATIVE_STATUS, '中毒量致死判定');
   }
-};
-
-const rollIntInRange = (min: number, max: number) => {
-  const low = Math.floor(Math.min(min, max));
-  const high = Math.floor(Math.max(min, max));
-  if (high <= low) return low;
-  return Math.floor(Math.random() * (high - low + 1)) + low;
-};
-
-const applyFatigueDegreePenaltyOnTurnStart = () => {
-  const current = fatigueDegree.value;
-  if (current < 200) return false;
-
-  if (current >= 300) {
-    playerStats.value.maxHp = 0;
-    playerStats.value.hp = 0;
-    log('<span class="text-red-400">[疲劳度] 已达到 300，生命上限归零，直接战败。</span>');
-    return true;
-  }
-
-  const fatigueStacks = rollIntInRange(1, 3);
-  applyStatusEffectWithRelics('player', ET.FATIGUE, fatigueStacks, { source: 'system:fatigue_degree' });
-  log(`<span class="text-amber-300">[疲劳度] 回合开始获得 ${fatigueStacks} 层疲劳。</span>`);
-
-  if (current >= 200) {
-    const poisonStacks = rollIntInRange(1, 2);
-    applyStatusEffectWithRelics('player', ET.POISON, poisonStacks, { source: 'system:fatigue_degree' });
-    log(`<span class="text-emerald-300">[疲劳度] 额外获得 ${poisonStacks} 层中毒。</span>`);
-  }
-
-  return false;
 };
 
 const queueCardNegativeEffectForPlayer = (source: BattleSide, card: CardData) => {
@@ -5390,8 +5311,6 @@ applyUnseeableAura('enemy', 'battle_start');
 
 onMounted(() => {
   battleSpeedUp.value = localStorage.getItem(SPEED_SETTING_KEY) === '1';
-  loadFatigueDegree();
-  addFatigueDegree(10);
   void initPortraitUrls();
 });
 watch(
@@ -6132,7 +6051,6 @@ const resolveTwinDirectComboCard = async (card: CardData, handIdx: number) => {
 
   clearDicePreview();
   showPlayerPlayedCard(playedCard);
-  addFatigueDegree(1);
   combatState.value.discardPile.push(playedCard);
   combatState.value.playerSelectedCard = playedCard;
   twinDirectComboResolving.value = true;
@@ -6236,7 +6154,6 @@ const resolveTwinCombatSequence = async () => {
 
     if (playerCardToResolve.id !== PASS_CARD.id) {
       showPlayerPlayedCard(playerCardToResolve);
-      addFatigueDegree(1);
     } else {
       clearPlayerPlayedCard();
     }
@@ -6320,12 +6237,6 @@ function selectEnemyCard(): CardData {
     selectedCard = fallback ?? PASS_CARD;
   }
 
-  const runtimeCard = withEffectiveManaCost('enemy', selectedCard);
-  const check = canPlayCard(enemyStats.value, runtimeCard, combatState.value.enemyBaseDice);
-  if (!check.allowed) {
-    log(`<span class="text-gray-400">敌方无法出牌：${check.reason ?? '本回合跳过。'}</span>`);
-    return PASS_CARD;
-  }
   return selectedCard;
 }
 
@@ -6546,10 +6457,6 @@ watch(
           player: Math.max(0, Math.floor(playerStats.value.mp)),
           enemy: Math.max(0, Math.floor(enemyStats.value.mp)),
         };
-      }
-      const defeatedByFatigueDegree = applyFatigueDegreePenaltyOnTurnStart();
-      if (defeatedByFatigueDegree) {
-        return;
       }
       if (
         isLordBattle
@@ -6971,7 +6878,6 @@ const handleCardSelect = (card: CardData, handIdx: number) => {
   }
   clearDicePreview();
   showPlayerPlayedCard(playedCard);
-  addFatigueDegree(1);
   combatState.value.discardPile.push(playedCard);
   combatState.value.playerSelectedCard = playedCard;
   combatState.value.phase = CombatPhase.RESOLUTION;
@@ -7054,6 +6960,21 @@ const resolveCombat = async (
   let resolvedPlayerCard = pCard;
   let resolvedEnemyCard = eCard;
   resolvedEnemyCard = withEffectiveManaCost('enemy', resolvedEnemyCard);
+  if (resolvedEnemyCard.id !== PASS_CARD.id) {
+    const deferEnemyManaCheck = !isEnemyComboPrelude && resolvedPlayerCard.traits.combo;
+    const enemyPlayCheck = canPlayCard(enemyStats.value, resolvedEnemyCard, eDice, {
+      ignoreMana: deferEnemyManaCheck,
+    });
+    if (!enemyPlayCheck.allowed) {
+      triggerEnemyIntentInvalidShake(options.twinSlotIndex, resolvedEnemyCard);
+      if (resolvedEnemyCard.type === CardType.MAGIC && resolvedEnemyCard.manaCost > enemyStats.value.mp) {
+        notifyEnemyManaInsufficient();
+      } else {
+        log(`<span class="text-gray-400">敌方无法出牌：${enemyPlayCheck.reason ?? '本回合跳过。'}</span>`);
+      }
+      resolvedEnemyCard = PASS_CARD;
+    }
+  }
   if (
     !isEnemyComboPrelude
     && resolvedPlayerCard.id !== PASS_CARD.id
@@ -7061,23 +6982,6 @@ const resolveCombat = async (
   ) {
     playerPlayedPhysicalOrMagicThisTurn.value = true;
   }
-  if (
-    resolvedEnemyCard.type === CardType.MAGIC
-    && resolvedEnemyCard.id !== PASS_CARD.id
-    && !enemyIntentManaSpentThisTurn.value
-  ) {
-    enemyIntentManaSpentThisTurn.value = true;
-    const enemyManaCost = resolvedEnemyCard.id === 'enemy_selina_space_fold'
-      ? getSelinaSpaceFoldManaSpend(enemyStats.value)
-      : resolvedEnemyCard.manaCost;
-    const canSpend = spendManaWithShock('enemy', enemyManaCost, `使用【${resolvedEnemyCard.name}】`);
-    if (!canSpend) {
-      resolvedEnemyCard = PASS_CARD;
-      combatState.value.enemyIntentCard = PASS_CARD;
-      notifyEnemyManaInsufficient();
-    }
-  }
-
   resolvedPlayerCard = withFirstUseLightningAmbushBonus('player', resolvedPlayerCard);
   resolvedEnemyCard = withFirstUseLightningAmbushBonus('enemy', resolvedEnemyCard);
   resolvedPlayerCard = applyFirstComboIfNeeded('player', resolvedPlayerCard);
@@ -7097,6 +7001,51 @@ const resolveCombat = async (
 
   if (resolvedPlayerCard.traits.combo) {
     comboUiMaskBridge.value = true;
+  }
+
+  let playerMagicManaPaidOnPlay = false;
+  let enemyMagicManaPaidOnPlay = false;
+  const spendMagicManaOnPlay = (side: BattleSide, card: CardData): boolean => {
+    if (card.id === PASS_CARD.id || card.type !== CardType.MAGIC) return true;
+    const runtimeCard = withEffectiveManaCost(side, card);
+    const stats = side === 'player' ? playerStats.value : enemyStats.value;
+    const manaCost = runtimeCard.id === 'enemy_selina_space_fold'
+      ? getSelinaSpaceFoldManaSpend(stats)
+      : runtimeCard.manaCost;
+    const canSpend = spendManaWithShock(side, manaCost, `使用【${runtimeCard.name}】`);
+    if (!canSpend) {
+      if (side === 'enemy') {
+        triggerEnemyIntentInvalidShake(options.twinSlotIndex, card);
+        notifyEnemyManaInsufficient();
+      } else {
+        log(`<span class="text-red-400">我方【${runtimeCard.name}】发动失败：法力已不足。</span>`);
+      }
+      return false;
+    }
+    if (side === 'enemy') {
+      enemyIntentManaSpentThisTurn.value = true;
+    }
+    return true;
+  };
+
+  if (resolvedPlayerCard.type === CardType.MAGIC && resolvedPlayerCard.id !== PASS_CARD.id) {
+    if (spendMagicManaOnPlay('player', resolvedPlayerCard)) {
+      playerMagicManaPaidOnPlay = true;
+    } else {
+      resolvedPlayerCard = PASS_CARD;
+    }
+  }
+  const deferEnemyMagicManaPayment = !isEnemyComboPrelude && resolvedPlayerCard.traits.combo;
+  if (
+    !deferEnemyMagicManaPayment
+    && resolvedEnemyCard.type === CardType.MAGIC
+    && resolvedEnemyCard.id !== PASS_CARD.id
+  ) {
+    if (spendMagicManaOnPlay('enemy', resolvedEnemyCard)) {
+      enemyMagicManaPaidOnPlay = true;
+    } else {
+      resolvedEnemyCard = PASS_CARD;
+    }
   }
 
   const shouldClash = isClashable(resolvedPlayerCard, resolvedEnemyCard);
@@ -7403,7 +7352,7 @@ const resolveCombat = async (
     source: 'player' | 'enemy',
     card: CardData,
     baseDice: number,
-    executeOptions: { skipManaCost?: boolean } = {},
+    executeOptions: { skipManaCost?: boolean; manaCostAlreadyPaid?: boolean } = {},
   ) => {
     if (endCombatPending.value) return;
     const attacker = source === 'player' ? playerStats.value : enemyStats.value;
@@ -7417,6 +7366,34 @@ const resolveCombat = async (
     const playerBurnBeforeAction = getEffectStacks(playerStats.value, ET.BURN);
     const playerHpBeforeAction = playerStats.value.hp;
     let relicTrackingHandled = false;
+
+    if (source === 'enemy' && card.id !== PASS_CARD.id) {
+      const enemyRuntimeCard = withEffectiveManaCost('enemy', card);
+      const enemyPlayCheck = canPlayCard(enemyStats.value, enemyRuntimeCard, baseDice, {
+        ignoreMana: executeOptions.skipManaCost,
+      });
+      if (!enemyPlayCheck.allowed) {
+        triggerEnemyIntentInvalidShake(options.twinSlotIndex, card);
+        if (enemyRuntimeCard.type === CardType.MAGIC && enemyRuntimeCard.manaCost > enemyStats.value.mp) {
+          notifyEnemyManaInsufficient();
+        } else {
+          log(`<span class="text-gray-400">敌方无法出牌：${enemyPlayCheck.reason ?? '本回合跳过。'}</span>`);
+        }
+        return;
+      }
+      if (enemyRuntimeCard.type === CardType.MAGIC && !executeOptions.skipManaCost && !enemyIntentManaSpentThisTurn.value) {
+        const enemyManaCost = enemyRuntimeCard.id === 'enemy_selina_space_fold'
+          ? getSelinaSpaceFoldManaSpend(enemyStats.value)
+          : enemyRuntimeCard.manaCost;
+        const canSpend = spendManaWithShock('enemy', enemyManaCost, `使用【${enemyRuntimeCard.name}】`);
+        if (!canSpend) {
+          triggerEnemyIntentInvalidShake(options.twinSlotIndex, card);
+          notifyEnemyManaInsufficient();
+          return;
+        }
+        enemyIntentManaSpentThisTurn.value = true;
+      }
+    }
 
     if (source === 'enemy' && card.id !== PASS_CARD.id) {
       enemyIntentConsumedThisTurn.value = true;
@@ -7444,7 +7421,9 @@ const resolveCombat = async (
         return;
       }
     } else if (source === 'player' && card.type === CardType.MAGIC && card.id !== PASS_CARD.id && executeOptions.skipManaCost) {
-      logRelicMessage(`[星之核] 【${card.name}】额外结算不再消耗法力。`);
+      if (!executeOptions.manaCostAlreadyPaid) {
+        logRelicMessage(`[星之核] 【${card.name}】额外结算不再消耗法力。`);
+      }
     }
     if (card.excape) {
       const sourceLabel = source === 'player' ? '我方' : '敌方';
@@ -9292,6 +9271,7 @@ const resolveCombat = async (
     card: CardData;
     type: CardType;
     baseDice: number;
+    magicManaPaidOnPlay?: boolean;
   }
 
   const applyPointSuppressBeforeQueue = () => {
@@ -9334,10 +9314,22 @@ const resolveCombat = async (
   const queue: ActionEntry[] = [];
   let deferredEnemyAction: ActionEntry | null = null;
   if (pSuccess && !(isEnemyComboPrelude && resolvedPlayerCard.id === PASS_CARD.id)) {
-    queue.push({ source: 'player', card: resolvedPlayerCard, type: resolvedPlayerCard.type, baseDice: resolvedPlayerDice });
+    queue.push({
+      source: 'player',
+      card: resolvedPlayerCard,
+      type: resolvedPlayerCard.type,
+      baseDice: resolvedPlayerDice,
+      magicManaPaidOnPlay: playerMagicManaPaidOnPlay,
+    });
   }
   if (eSuccess) {
-    const enemyAction: ActionEntry = { source: 'enemy', card: resolvedEnemyCard, type: resolvedEnemyCard.type, baseDice: resolvedEnemyDice };
+    const enemyAction: ActionEntry = {
+      source: 'enemy',
+      card: resolvedEnemyCard,
+      type: resolvedEnemyCard.type,
+      baseDice: resolvedEnemyDice,
+      magicManaPaidOnPlay: enemyMagicManaPaidOnPlay,
+    };
     if (!isEnemyComboPrelude && resolvedPlayerCard.traits.combo) {
       // 连击过程中，敌方行动延后到“连击结束”时再结算一次
       deferredEnemyAction = enemyAction;
@@ -9369,7 +9361,10 @@ const resolveCombat = async (
         logRelicMessage('[星之核] 本场第一张法术牌将额外结算一次。');
       }
     }
-    await executeCard(action.source, action.card, action.baseDice);
+    await executeCard(action.source, action.card, action.baseDice, {
+      skipManaCost: action.magicManaPaidOnPlay,
+      manaCostAlreadyPaid: action.magicManaPaidOnPlay,
+    });
     if (
       action.source === 'player'
       && action.card.id !== PASS_CARD.id
@@ -9745,9 +9740,6 @@ const runEndCombatSequence = async (outcome: CombatOutcome) => {
 
   await wait(RESULT_BANNER_STAY_MS);
   if (token !== endCombatSequenceToken) return;
-  if (outcome !== 'escape') {
-    setFatigueDegree(0);
-  }
   const finalPlayerStats = cloneEntityStats(playerStats.value);
   if (getEffectStacks(finalPlayerStats, ET.TEMP_MAX_HP) > 0) {
     removeEffect(finalPlayerStats, ET.TEMP_MAX_HP);

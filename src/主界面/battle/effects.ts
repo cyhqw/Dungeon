@@ -1487,7 +1487,7 @@ export function canPlayCard(
   entity: EntityStats,
   card: CardData,
   baseRawDice: number,
-  options?: { controlledExpectedType?: CardType | null },
+  options?: { controlledExpectedType?: CardType | null; ignoreMana?: boolean },
 ): { allowed: boolean; reason?: string } {
   // 无法打出
   if (card.traits.unplayable) {
@@ -1520,7 +1520,7 @@ export function canPlayCard(
   }
 
   // 法力不足（仅魔法卡有费用）
-  if (card.type === ('魔法' as CardType) && card.manaCost > entity.mp) {
+  if (!options?.ignoreMana && card.type === ('魔法' as CardType) && card.manaCost > entity.mp) {
     return { allowed: false, reason: `法力不足（需要${card.manaCost}，当前${entity.mp}）。` };
   }
 

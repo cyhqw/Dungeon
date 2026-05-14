@@ -3299,8 +3299,8 @@ const 面具侍从: EnemyDefinition = {
 const 镜像分身: EnemyDefinition = {
   name: '镜像分身',
   stats: {
-    hp: 160,
-    maxHp: 160,
+    hp: 100,
+    maxHp: 130,
     mp: 0,
     minDice: 1,
     maxDice: 1,
