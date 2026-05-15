@@ -229,6 +229,13 @@ const BLOOD_BAT_CARD = {
   LOW_GLIDE: 'enemy_blood_bat_low_glide',
 } as const;
 
+const BROKEN_MIRROR_BAT_CARD = {
+  ILLUSION_BOMBARD: 'enemy_broken_mirror_bat_illusion_bombard',
+  EROTIC_KALEIDOSCOPE: 'enemy_broken_mirror_bat_erotic_kaleidoscope',
+  SELF_STRIPPING: 'enemy_broken_mirror_bat_self_stripping',
+  REFRACTIVE_WINGS: 'enemy_broken_mirror_bat_refractive_wings',
+} as const;
+
 const BLOOD_SERVANT_CARD = {
   OFFERING_SMILE: 'enemy_blood_servant_offering_smile',
   INVITATION: 'enemy_blood_servant_invitation',
@@ -1402,6 +1409,53 @@ const 血蝙蝠: EnemyDefinition = {
       { value: BLOOD_BAT_CARD.LOW_GLIDE, weight: 30 },
     ]);
     return pickCardById(ctx, chosen);
+  },
+};
+
+const 碎镜蝠: EnemyDefinition = {
+  name: '碎镜蝠',
+  stats: {
+    hp: 8,
+    maxHp: 8,
+    mp: 4,
+    minDice: 3,
+    maxDice: 7,
+    effects: [
+      { type: EffectType.MIRROR_SWARM, stacks: 6, polarity: 'buff' },
+      { type: EffectType.NON_LIVING, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    BROKEN_MIRROR_BAT_CARD.ILLUSION_BOMBARD,
+    BROKEN_MIRROR_BAT_CARD.EROTIC_KALEIDOSCOPE,
+    BROKEN_MIRROR_BAT_CARD.SELF_STRIPPING,
+    BROKEN_MIRROR_BAT_CARD.REFRACTIVE_WINGS,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    const playerHasLustIllusion = ctx.playerStats.effects.some(e => e.type === EffectType.LUST_ILLUSION && e.stacks > 0);
+
+    if (ctx.enemyStats.mp >= 2) {
+      const pool: Array<{ value: string; weight: number }> = [
+        { value: BROKEN_MIRROR_BAT_CARD.ILLUSION_BOMBARD, weight: 60 },
+        { value: BROKEN_MIRROR_BAT_CARD.REFRACTIVE_WINGS, weight: 40 },
+      ];
+      if (playerHasLustIllusion) {
+        pool.push({ value: BROKEN_MIRROR_BAT_CARD.SELF_STRIPPING, weight: 50 });
+      }
+      if (ctx.enemyStats.mp >= 8) {
+        pool.push({ value: BROKEN_MIRROR_BAT_CARD.EROTIC_KALEIDOSCOPE, weight: 100 });
+      }
+      return pickCardById(ctx, weightedRandomWithoutImmediateRepeat(ctx, 'brokenMirrorBatLastCardId', pool));
+    }
+
+    const pool: Array<{ value: string; weight: number }> = [
+      { value: BROKEN_MIRROR_BAT_CARD.REFRACTIVE_WINGS, weight: 50 },
+    ];
+    if (playerHasLustIllusion) {
+      pool.push({ value: BROKEN_MIRROR_BAT_CARD.SELF_STRIPPING, weight: 50 });
+    }
+    return pickCardById(ctx, weightedRandom<string>(pool));
   },
 };
 
@@ -3338,6 +3392,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [赛琳娜.name, 赛琳娜],
   [缝合蜘蛛.name, 缝合蜘蛛],
   [血蝙蝠.name, 血蝙蝠],
+  [碎镜蝠.name, 碎镜蝠],
   [血仆.name, 血仆],
   [梦魇驹.name, 梦魇驹],
   [梦魇蛾.name, 梦魇蛾],

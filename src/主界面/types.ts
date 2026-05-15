@@ -77,7 +77,8 @@ export type CardEffectTrigger =
   | 'on_clash_fail'
   | 'on_dodge_success'
   | 'on_opponent_skip'
-  | 'on_no_direct_damage_taken_this_turn';
+  | 'on_no_direct_damage_taken_this_turn'
+  | 'on_turn_end_in_hand';
 
 /** 卡牌打出时附带的效果 */
 export interface CardEffect {
@@ -88,6 +89,7 @@ export interface CardEffect {
   kind:
     | 'apply_buff'     // 为目标施加 Buff/Debuff
     | 'heal'           // 回复生命
+    | 'damage'         // 造成伤害
     | 'restore_mana'   // 回复魔力
     | 'cleanse'        // 清除自身指定类型的 Debuff
     | 'modify_dice'    // 调整最小/最大骰子点数
@@ -110,6 +112,10 @@ export interface CardEffect {
   scale?: number;
   /** 持续回合数：仅对 apply_buff 生效，到回合结束时递减，归零后移除 */
   durationTurns?: number;
+  /** damage 专用：是否视为真实伤害 */
+  isTrueDamage?: boolean;
+  /** damage 专用：是否计入直接伤害 */
+  isDirectDamage?: boolean;
 
   // ── modify_dice 专用 ──
   /** 最小骰子点数加减值 */
@@ -164,7 +170,7 @@ export interface CardData {
   manaDrain?: number | CardManaDrainConfig;
   /** 无视闪避：对闪避牌时不进入闪避拼点，直接生效 */
   ignoreDodge?: boolean;
-  /** 群攻：对目标造成伤害时，永久减少其本场战斗中“群集”可恢复的生命值 */
+  /** 群攻：对目标造成伤害时，永久减少其本场战斗中“群集/镜·群集”可恢复的生命值 */
   swarmAttack?: boolean;
   /** 逃离：任意一方打出后立刻结束战斗（无金币/卡牌奖励） */
   excape?: boolean;
@@ -297,6 +303,8 @@ export enum EffectType {
   VOID_TAINT = '虚空浸染',
   /** 群集 — 生命值归零时消耗1层并复活至满血 */
   SWARM = '群集',
+  /** 镜·群集 — 生命值归零时消耗1层并恢复至生命上限，至少1点 */
+  MIRROR_SWARM = '镜·群集',
   /** 血茧 — 生命值归零时消耗1层并恢复至50%生命 */
   BLOOD_COCOON = '血茧',
   /** 不屈 — 生命值归零时消耗1层并恢复至1点生命 */
@@ -359,6 +367,8 @@ export enum EffectType {
   ELEMENTAL_CORTEX = '元素皮层',
   /** 实体化 — 每回合-1，归零后清除非实体并满血，骰子最小/最大值+4 */
   MATERIALIZATION = '实体化',
+  /** 淫靡幻象 — 回合结束受到真实伤害，层数足够时转化为诅咒镜像 */
+  LUST_ILLUSION = '淫靡幻象',
 }
 
 /** 效果极性分类 */

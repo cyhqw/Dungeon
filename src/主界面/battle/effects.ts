@@ -434,6 +434,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '生命值≤0时，消耗1层并恢复至生命上限',
   },
+  [EffectType.MIRROR_SWARM]: {
+    type: EffectType.MIRROR_SWARM,
+    name: '镜·群集',
+    polarity: 'buff',
+    timings: ['onAfterDamage'],
+    stackable: true,
+    maxStacks: 0,
+    description: '生命值≤0时，消耗1层并恢复至生命上限，至少恢复1点生命值',
+  },
   [EffectType.BLOOD_COCOON]: {
     type: EffectType.BLOOD_COCOON,
     name: '血茧',
@@ -714,6 +723,15 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '每回合开始层数-1；归零后清除非实体、生命回满，并使最小/最大骰子点数+4',
   },
+  [EffectType.LUST_ILLUSION]: {
+    type: EffectType.LUST_ILLUSION,
+    name: '淫靡幻象',
+    polarity: 'debuff',
+    timings: ['onTurnEnd'],
+    stackable: true,
+    maxStacks: 0,
+    description: '每回合结束时受到等同层数的真实伤害；若层数≥4，则减少4层并插入1张堕落的人格镜像',
+  },
 };
 
 const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
@@ -746,6 +764,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.MANA_SPRING,
   EffectType.VOID_TAINT,
   EffectType.MIRROR_REGENERATION,
+  EffectType.MIRROR_SWARM,
   EffectType.MIMICKER,
   EffectType.REGEN,
   EffectType.SELF_REPAIR,
@@ -767,6 +786,7 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.CONTROLLED,
   EffectType.MANA_DRAIN,
   EffectType.CO_DAMAGE,
+  EffectType.LUST_ILLUSION,
   EffectType.PEEP_FORBIDDEN,
   EffectType.BLIND_ASH,
   EffectType.COGNITIVE_INTERFERENCE,

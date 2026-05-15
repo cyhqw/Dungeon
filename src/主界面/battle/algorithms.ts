@@ -225,6 +225,7 @@ export function triggerSwarmReviveIfNeeded(
   if (options?.disableRevive) {
     const hasAnyRevive =
       getEffectStacks(target, EffectType.SWARM) > 0
+      || getEffectStacks(target, EffectType.MIRROR_SWARM) > 0
       || getEffectStacks(target, EffectType.BLOOD_COCOON) > 0
       || getEffectStacks(target, EffectType.INDOMITABLE) > 0
       || getEffectStacks(target, EffectType.MIRROR_REGENERATION) > 0;
@@ -244,6 +245,16 @@ export function triggerSwarmReviveIfNeeded(
     }
     target.hp = revivedHp;
     logs.push(`[群集] 触发复苏，消耗1层并恢复至${revivedHp}生命。`);
+    return { revived: true, logs };
+  }
+
+  const mirrorSwarmStacks = getEffectStacks(target, EffectType.MIRROR_SWARM);
+  if (mirrorSwarmStacks > 0) {
+    reduceEffectStacks(target, EffectType.MIRROR_SWARM, 1);
+    const swarmHealReduction = Math.max(0, Math.floor(target.swarmHealReduction ?? 0));
+    const revivedHp = Math.max(1, target.maxHp - swarmHealReduction);
+    target.hp = revivedHp;
+    logs.push(`[镜·群集] 触发复苏，消耗1层并恢复至${revivedHp}生命。`);
     return { revived: true, logs };
   }
 

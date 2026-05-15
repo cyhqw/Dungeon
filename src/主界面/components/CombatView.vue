@@ -1419,6 +1419,7 @@ const enemyIntentConsumedThisTurn = ref(false);
 const enemyIntentManaSpentThisTurn = ref(false);
 const enemyComboPreludeResolvedTurn = ref<number | null>(null);
 const drawPhasePreparing = ref(false);
+const activeSkillResolving = ref(false);
 const combatRootEl = ref<HTMLElement | null>(null);
 const effectTooltip = ref<{
   x: number;
@@ -1433,6 +1434,7 @@ type BattleSide = 'player' | 'enemy';
 type CombatOutcome = 'win' | 'lose' | 'escape';
 type FloatingNumberKind = 'physical' | 'magic' | 'shield' | 'heal' | 'mana' | 'true';
 type ResolvedCardAnimVariant = 'attack' | 'self' | 'fade';
+type HandCardAnimationKind = 'draw' | 'discard' | 'turn_end_in_hand';
 type TooltipAlign = 'center' | 'right';
 
 interface ActiveSkillRuntimeState {
@@ -1762,6 +1764,7 @@ let endCombatSequenceToken = 0;
 let enemyManaLackHintTurn = -1;
 const handCardKeys = new WeakMap<CardData, string>();
 const invalidCardShakeKeys = ref<Set<string>>(new Set());
+const handCardAnimations = ref<Record<string, HandCardAnimationKind>>({});
 
 // Default relic modifiers (no relics yet)
 const NO_RELIC_MOD = { globalMultiplier: 1, globalAddition: 0 };
@@ -2969,6 +2972,90 @@ const triggerInvalidCardShake = (card: CardData) => {
   });
 };
 
+const HAND_CARD_ANIMATION_DURATION: Record<HandCardAnimationKind, number> = {
+  draw: 620,
+  discard: 560,
+  turn_end_in_hand: 820,
+};
+
+const setHandCardAnimation = (card: CardData, kind: HandCardAnimationKind | null) => {
+  const key = handCardKey(card);
+  const next = { ...handCardAnimations.value };
+  if (kind) {
+    next[key] = kind;
+  } else {
+    delete next[key];
+  }
+  handCardAnimations.value = next;
+};
+
+const clearHandCardAnimationLater = (
+  card: CardData,
+  kind: HandCardAnimationKind,
+  delay = HAND_CARD_ANIMATION_DURATION[kind],
+) => {
+  const key = handCardKey(card);
+  setTimeout(() => {
+    if (handCardAnimations.value[key] !== kind) return;
+    setHandCardAnimation(card, null);
+  }, scaleDuration(delay + 80));
+};
+
+const handCardAnimationClass = (card: CardData) => {
+  const kind = handCardAnimations.value[handCardKey(card)];
+  return kind ? `hand-card-motion-${kind}` : '';
+};
+
+const markDrawnCardsAnimation = (drawn: CardData[]) => {
+  if (drawn.length <= 0) return;
+  const next = { ...handCardAnimations.value };
+  drawn.forEach((card) => {
+    next[handCardKey(card)] = 'draw';
+  });
+  handCardAnimations.value = next;
+  drawn.forEach((card) => {
+    clearHandCardAnimationLater(card, 'draw');
+  });
+};
+
+const playCardsToDiscardAnimation = async (cards: CardData[]) => {
+  if (cards.length <= 0) return;
+  cards.forEach((card, index) => {
+    setTimeout(() => {
+      setHandCardAnimation(card, 'discard');
+    }, scaleDuration(index * 45));
+  });
+  await wait(HAND_CARD_ANIMATION_DURATION.discard + Math.min(4, cards.length - 1) * 45);
+};
+
+const playTurnEndInHandCardAnimation = async (card: CardData, index: number, total: number) => {
+  void index;
+  void total;
+  setHandCardAnimation(card, 'turn_end_in_hand');
+  await wait(430);
+};
+
+const putDrawnCardIntoHand = async (card: CardData, sourceText: string) => {
+  if (combatState.value.playerHand.length >= 3) {
+    const replaceIdx = Math.floor(Math.random() * combatState.value.playerHand.length);
+    const replaced = combatState.value.playerHand[replaceIdx]!;
+    setHandCardAnimation(replaced, 'discard');
+    await wait(HAND_CARD_ANIMATION_DURATION.discard);
+    setHandCardAnimation(card, 'draw');
+    combatState.value.playerHand.splice(replaceIdx, 1, card);
+    combatState.value.discardPile.push(replaced);
+    setHandCardAnimation(replaced, null);
+    clearHandCardAnimationLater(card, 'draw');
+    log(`<span class="text-zinc-200">${sourceText}：手牌已满，随机替换了【${replaced.name}】→【${card.name}】。</span>`);
+    return;
+  }
+
+  setHandCardAnimation(card, 'draw');
+  clearHandCardAnimationLater(card, 'draw');
+  combatState.value.playerHand = [...combatState.value.playerHand, card];
+  log(`<span class="text-zinc-200">${sourceText}：抽到【${card.name}】。</span>`);
+};
+
 const triggerEnemyIntentInvalidShake = (slotIndex?: 1 | 2, fallbackCard?: CardData) => {
   const intentCard = slotIndex
     ? twinEnemyIntentCards.value[slotIndex - 1]
@@ -3038,6 +3125,77 @@ const applyInsertTrait = (source: BattleSide, card: CardData) => {
       combatState.value.enemyDeck = insertCardIntoDeckRandomly(combatState.value.enemyDeck, battleCard);
       log(`<span class="text-fuchsia-300">${sourceLabel}【${card.name}】向对方牌库插入了【${cardName}】（敌方牌库${combatState.value.enemyDeck.length} / 弃牌${combatState.value.enemyDiscard.length}）。</span>`);
     }
+  }
+};
+
+const insertFallenPersonalityMirrorForSide = (side: BattleSide, sourceText: string) => {
+  const cardName = '堕落的人格镜像';
+  const card = getCardByName(cardName);
+  if (!card) return;
+  const battleCard = cloneCardForBattle(card);
+  const label = side === 'player' ? '我方' : '敌方';
+  if (side === 'player') {
+    combatState.value.playerDeck = insertCardIntoDeckRandomly(combatState.value.playerDeck, battleCard);
+    log(`<span class="text-fuchsia-300">${label}[${sourceText}] 向牌库插入了【${cardName}】（牌库${combatState.value.playerDeck.length} / 弃牌${combatState.value.discardPile.length}）。</span>`);
+  } else {
+    combatState.value.enemyDeck = insertCardIntoDeckRandomly(combatState.value.enemyDeck, battleCard);
+    log(`<span class="text-fuchsia-300">${label}[${sourceText}] 向牌库插入了【${cardName}】（敌方牌库${combatState.value.enemyDeck.length} / 弃牌${combatState.value.enemyDiscard.length}）。</span>`);
+  }
+};
+
+const processLustIllusionTurnEndForSide = (side: BattleSide) => {
+  const target = getEntityBySide(side);
+  const stacks = Math.max(0, getEffectStacks(target, ET.LUST_ILLUSION));
+  if (stacks <= 0) return;
+  const label = side === 'player' ? '我方' : '敌方';
+  const { actualDamage, logs: damageLogs } = applyDamageToSideWithRelics(
+    side,
+    target,
+    stacks,
+    true,
+    '淫靡幻象',
+    { dreamControlKind: 'status' },
+  );
+  if (actualDamage > 0) {
+    pushFloatingNumber(side, actualDamage, 'true', '-');
+  }
+  log(`<span class="text-fuchsia-300">${label}[淫靡幻象] 回合结束受到 ${actualDamage} 点真实伤害。</span>`);
+  for (const damageLog of damageLogs) {
+    const normalized = damageLog.startsWith('受到') ? `${label}${damageLog}` : damageLog;
+    log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+  }
+  if (stacks >= 4) {
+    reduceEffectStacks(target, ET.LUST_ILLUSION, 4);
+    insertFallenPersonalityMirrorForSide(side, '淫靡幻象');
+    log(`<span class="text-fuchsia-300">${label}[淫靡幻象] 层数达到4，减少4层。</span>`);
+  }
+};
+
+const processTurnEndInHandCardEffects = async () => {
+  const cards = [...combatState.value.playerHand];
+  const total = cards.filter(card => card.cardEffects.some(effect => cardEffectMatchesTrigger(effect.triggers, 'on_turn_end_in_hand'))).length;
+  let triggerIndex = 0;
+  for (const card of cards) {
+    if (playerStats.value.hp <= 0) break;
+    if (!card.cardEffects.some(effect => cardEffectMatchesTrigger(effect.triggers, 'on_turn_end_in_hand'))) continue;
+    const handIndex = combatState.value.playerHand.findIndex(entry => entry === card);
+    if (handIndex < 0) continue;
+    const finalPoint = getCardPreviewPoint('player', card, combatState.value.playerBaseDice);
+    try {
+      await playTurnEndInHandCardAnimation(card, triggerIndex, total);
+      applyCardEffectsByTrigger('player', card, finalPoint, 'on_turn_end_in_hand');
+      await wait(430);
+      const currentIndex = combatState.value.playerHand.findIndex(entry => entry === card);
+      if (currentIndex >= 0) {
+        const [removed] = combatState.value.playerHand.splice(currentIndex, 1);
+        if (removed) {
+          combatState.value.discardPile.push(removed);
+        }
+      }
+    } finally {
+      setHandCardAnimation(card, null);
+    }
+    triggerIndex += 1;
   }
 };
 
@@ -3438,6 +3596,7 @@ const applyCardEffectsByTrigger = (
     on_dodge_success: '闪避成功',
     on_opponent_skip: '对方跳过回合',
     on_no_direct_damage_taken_this_turn: '本回合未受到直接伤害',
+    on_turn_end_in_hand: '回合结束时保留在手牌中',
   };
   let hasEffect = false;
   for (const ce of card.cardEffects) {
@@ -3469,6 +3628,62 @@ const applyCardEffectsByTrigger = (
         reason: `卡牌【${card.name}】治疗`,
       });
       log(`<span class="text-green-400">${label}【${card.name}】回复了 ${healed} 点生命</span>`);
+      hasEffect = true;
+    } else if (ce.kind === 'damage') {
+      const rawDamage = ce.valueMode === 'point_scale'
+        ? Math.floor(finalPoint * (ce.scale ?? 1))
+        : ce.valueMode === 'max_hp_percent'
+          ? Math.floor(targetEntity.maxHp * (ce.scale ?? 0))
+          : Math.floor(ce.fixedValue ?? 0);
+      const damageAmount = Math.max(0, rawDamage);
+      if (damageAmount <= 0) continue;
+      const damageCard: CardData = {
+        ...card,
+        damageLogic: { mode: 'fixed', value: damageAmount },
+      };
+      const damageResult = calculateFinalDamage({
+        finalPoint,
+        card: damageCard,
+        attackerEffects: attacker.effects,
+        defenderEffects: targetEntity.effects,
+        relicModifiers: NO_RELIC_MOD,
+        isTrueDamage: ce.isTrueDamage,
+      });
+      const armorBeforeHit = getEffectStacks(targetEntity, ET.ARMOR);
+      const barrierBeforeHit = getEffectStacks(targetEntity, ET.BARRIER);
+      const { actualDamage, logs: applyLogs } = applyDamageToSideWithRelics(
+        targetSide,
+        targetEntity,
+        damageResult.damage,
+        damageResult.isTrueDamage,
+        `卡牌【${card.name}】`,
+        { sourceSide: source, isDirectDamage: ce.isDirectDamage, card: damageCard },
+      );
+      const armorBlocked =
+        actualDamage <= 0
+        && !damageResult.isTrueDamage
+        && damageResult.damage > 0
+        && barrierBeforeHit <= 0
+        && armorBeforeHit > 0;
+      if (actualDamage > 0 || armorBlocked) {
+        const damageKind: FloatingNumberKind = damageResult.isTrueDamage
+          ? 'true'
+          : (card.type === CardType.MAGIC ? 'magic' : 'physical');
+        pushFloatingNumber(targetSide, actualDamage, damageKind, '-', {
+          allowZero: armorBlocked,
+        });
+      }
+      const targetLabel = targetSide === 'player' ? '我方' : '敌方';
+      const triggerText = triggerTextMap[trigger];
+      log(`<span class="text-fuchsia-300">${label}【${card.name}】${triggerText ? `${triggerText}，` : ''}对${targetLabel}造成 ${actualDamage} 点伤害。</span>`);
+      for (const damageLog of damageResult.logs) {
+        if (damageLog.startsWith('原始伤害:')) continue;
+        log(`<span class="text-gray-500 text-[9px]">${damageLog}</span>`);
+      }
+      for (const applyLog of applyLogs) {
+        const normalized = applyLog.startsWith('受到') ? `${targetLabel}${applyLog}` : applyLog;
+        log(`<span class="text-gray-500 text-[9px]">${normalized}</span>`);
+      }
       hasEffect = true;
     } else if (ce.kind === 'apply_buff') {
       const beforeMaxHp = targetEntity.maxHp;
@@ -4142,6 +4357,7 @@ const stopAllCardAnimations = () => {
   animationStopToken += 1;
   clearPlayerPlayedCard();
   clearResolvedCardVisual();
+  handCardAnimations.value = {};
   impactShake.value = false;
   showClashAnimation.value = false;
   shatteringTarget.value = null;
@@ -4264,6 +4480,12 @@ const getCardFinalPoint = (
   }
   if (card.id === 'enemy_nightmare_moth_blissful_dream') {
     finalPoint += countDistinctDebuffTypes(defender) * 2;
+  }
+  if (card.id === 'enemy_broken_mirror_bat_self_stripping' && getEffectStacks(defender, ET.LUST_ILLUSION) > 0) {
+    finalPoint *= 2;
+    if (!isPreview) {
+      log(`<span class="text-fuchsia-300">${source === 'player' ? '我方' : '敌方'}【${card.name}】目标已有淫靡幻象，点数 x2</span>`);
+    }
   }
   if (card.id === 'basic_sharp_attack' && isOnlyPhysicalCardForSide(source, card)) {
     finalPoint += 3;
@@ -4576,6 +4798,10 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
       finalPoint += blissBonus;
       lines.push(`极乐之梦（debuff种类${debuffTypeCount}）+${blissBonus} => ${finalPoint}`);
     }
+  }
+  if (card.id === 'enemy_broken_mirror_bat_self_stripping' && getEffectStacks(defender, ET.LUST_ILLUSION) > 0) {
+    finalPoint *= 2;
+    lines.push(`自我剥离（目标有淫靡幻象）x2 => ${formatPointValue(finalPoint)}`);
   }
   if (card.id === 'basic_sharp_attack' && isOnlyPhysicalCardForSide(source, card)) {
     finalPoint += 3;
@@ -5460,6 +5686,7 @@ const activeSkillDisabledReason = (idx: number): string | null => {
   const skill = normalizedPlayerActiveSkills.value[idx];
   if (!skill) return '未装备主动技能';
   if (endCombatPending.value) return '战斗结束中不可使用主动技能';
+  if (activeSkillResolving.value) return '主动技能结算中';
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return '当前阶段不可使用主动技能';
   if (getEffectStacks(playerStats.value, ET.STUN) > 0) return '处于眩晕，无法行动';
 
@@ -5629,7 +5856,7 @@ const rerollSideDiceByActiveSkill = (side: BattleSide, skillName: string): { bef
   return { before, after };
 };
 
-const useActiveSkill = (idx: number) => {
+const useActiveSkill = async (idx: number) => {
   const skill = normalizedPlayerActiveSkills.value[idx];
   if (!skill) return;
   if (
@@ -5654,10 +5881,12 @@ const useActiveSkill = (idx: number) => {
     return;
   }
 
+  activeSkillResolving.value = true;
   const manaCost = getActiveSkillManaCost(idx);
   if (manaCost > 0) {
     const ok = spendManaWithShock('player', manaCost, `使用主动【${skill.name}】`);
     if (!ok) {
+      activeSkillResolving.value = false;
       log(`<span class="text-red-400">主动【${skill.name}】使用失败：魔力不足。</span>`);
       return;
     }
@@ -5678,15 +5907,8 @@ const useActiveSkill = (idx: number) => {
       const card = drawn[0];
       if (!card) {
         log(`<span class="text-gray-400">主动【${skill.name}】：牌库与弃牌堆都为空，未抽到卡牌。</span>`);
-      } else if (combatState.value.playerHand.length >= 3) {
-        const replaceIdx = Math.floor(Math.random() * combatState.value.playerHand.length);
-        const replaced = combatState.value.playerHand[replaceIdx]!;
-        combatState.value.playerHand.splice(replaceIdx, 1, card);
-        combatState.value.discardPile.push(replaced);
-        log(`<span class="text-zinc-200">主动【${skill.name}】：手牌已满，随机替换了【${replaced.name}】→【${card.name}】。</span>`);
       } else {
-        combatState.value.playerHand = [...combatState.value.playerHand, card];
-        log(`<span class="text-zinc-200">主动【${skill.name}】：抽到【${card.name}】。</span>`);
+        await putDrawnCardIntoHand(card, `主动【${skill.name}】`);
       }
       break;
     }
@@ -5743,25 +5965,22 @@ const useActiveSkill = (idx: number) => {
       const card = drawn[0];
       if (!card) {
         log(`<span class="text-gray-400">主动【${skill.name}】：牌库与弃牌堆都为空，未抽到卡牌。</span>`);
-      } else if (combatState.value.playerHand.length >= 3) {
-        const replaceIdx = Math.floor(Math.random() * combatState.value.playerHand.length);
-        const replaced = combatState.value.playerHand[replaceIdx]!;
-        combatState.value.playerHand.splice(replaceIdx, 1, card);
-        combatState.value.discardPile.push(replaced);
-        log(`<span class="text-zinc-200">主动【${skill.name}】：手牌已满，随机替换了【${replaced.name}】→【${card.name}】。</span>`);
       } else {
-        combatState.value.playerHand = [...combatState.value.playerHand, card];
-        log(`<span class="text-zinc-200">主动【${skill.name}】：抽到【${card.name}】。</span>`);
+        await putDrawnCardIntoHand(card, `主动【${skill.name}】`);
       }
       break;
     }
     case 'active_basic_shuffle_magic': {
       const handCount = combatState.value.playerHand.length;
+      const oldHand = [...combatState.value.playerHand];
+      await playCardsToDiscardAnimation(oldHand);
       combatState.value.discardPile = [...combatState.value.discardPile, ...combatState.value.playerHand];
       combatState.value.playerHand = [];
       const { drawn, newDeck, newDiscard } = drawCards(Math.max(3, handCount), combatState.value.playerDeck, combatState.value.discardPile);
       applyOnDrawCardEffects(drawn);
-      combatState.value.playerHand = drawn.slice(0, 3);
+      const nextHand = drawn.slice(0, 3);
+      markDrawnCardsAnimation(nextHand);
+      combatState.value.playerHand = nextHand;
       combatState.value.playerDeck = newDeck;
       combatState.value.discardPile = newDiscard;
       log(`<span class="text-zinc-200">主动【${skill.name}】：重新抽取了 ${combatState.value.playerHand.length} 张卡牌。</span>`);
@@ -5790,6 +6009,8 @@ const useActiveSkill = (idx: number) => {
     case 'active_basic_golden_chest': {
       const oldHand = [...combatState.value.playerHand];
       const nextHand = replacePlayerHandWithRandomRareCards(oldHand.length);
+      await playCardsToDiscardAnimation(oldHand);
+      markDrawnCardsAnimation(nextHand);
       combatState.value.discardPile = [...combatState.value.discardPile, ...oldHand];
       combatState.value.playerHand = nextHand;
       log(`<span class="text-zinc-200">主动【${skill.name}】：将手牌替换为 ${nextHand.length} 张随机稀有卡牌。</span>`);
@@ -5957,6 +6178,7 @@ const useActiveSkill = (idx: number) => {
   }
 
   commitActiveSkillUse(idx, skill);
+  activeSkillResolving.value = false;
 };
 
 const handCardClass = (card: CardData) => {
@@ -5967,6 +6189,7 @@ const handCardClass = (card: CardData) => {
     const isSelected = slot !== null;
     const selectedCount = twinPlayerSelectedCards.value.filter((entry) => entry !== null).length;
     return [
+      handCardAnimationClass(card),
       isSelected ? '-translate-y-12 scale-110 z-50 ring-2 ring-dungeon-gold rounded-lg shadow-[0_0_30px_#d4af37]' : '',
       !isSelected && selectedCount >= 2 ? 'opacity-35 scale-90 translate-y-6 grayscale' : 'hover:scale-110 hover:-translate-y-4 hover:z-50',
       !isActionPhase && !isSelected ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer',
@@ -5978,6 +6201,7 @@ const handCardClass = (card: CardData) => {
   const isNotSelected = selected && !isSelected;
 
   return [
+    handCardAnimationClass(card),
     isSelected ? '-translate-y-12 scale-110 z-50 ring-2 ring-dungeon-gold rounded-lg shadow-[0_0_30px_#d4af37]' : '',
     isNotSelected ? 'opacity-30 scale-90 translate-y-8 grayscale' : 'hover:scale-110 hover:-translate-y-4 hover:z-50',
     !isActionPhase && !isSelected ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer',
@@ -6739,6 +6963,7 @@ watch(
         try {
           const { drawn, newDeck, newDiscard } = drawCards(3, combatState.value.playerDeck, combatState.value.discardPile);
           applyOnDrawCardEffects(drawn);
+          markDrawnCardsAnimation(drawn);
           combatState.value.playerHand = drawn;
           combatState.value.playerDeck = newDeck;
           combatState.value.discardPile = newDiscard;
@@ -6773,6 +6998,7 @@ watch(
 // Handle Card Select
 const handleCardSelect = (card: CardData, handIdx: number) => {
   if (combatState.value.phase !== CombatPhase.PLAYER_INPUT) return;
+  if (activeSkillResolving.value) return;
   if (handIdx < 0 || handIdx >= combatState.value.playerHand.length) return;
   if (combatState.value.playerHand[handIdx] !== card) return;
   if (handleActiveHandSelection(card, handIdx)) return;
@@ -8550,6 +8776,13 @@ const resolveCombat = async (
       if (card.id === 'modao_echo_feedback') {
         extraHitCount += defenderSwarmStacks;
       }
+      if (card.id === 'enemy_broken_mirror_bat_erotic_kaleidoscope') {
+        const lustIllusionStacks = Math.max(0, getEffectStacks(defender, ET.LUST_ILLUSION));
+        extraHitCount += lustIllusionStacks;
+        if (lustIllusionStacks > 0) {
+          log(`<span class="text-fuchsia-300">${label}【${card.name}】按目标淫靡幻象追加 ${lustIllusionStacks} 次伤害</span>`);
+        }
+      }
       if (card.id === 'modao_ring_collapse') {
         const availableMp = Math.min(20, Math.max(0, Math.floor(attacker.mp)));
         const consumedMp = Math.floor(availableMp / 4) * 4;
@@ -9454,6 +9687,7 @@ const resolveCombat = async (
     if (resolvedPlayerCard.traits.draw || getActiveRelicCount('alchemy_white_silk') > 0) {
       const { drawn, newDeck, newDiscard } = drawCards(1, combatState.value.playerDeck, combatState.value.discardPile);
       applyOnDrawCardEffects(drawn);
+      markDrawnCardsAnimation(drawn);
       combatState.value.playerDeck = newDeck;
       combatState.value.discardPile = newDiscard;
       combatState.value.playerHand = [...combatState.value.playerHand, ...drawn];
@@ -9486,6 +9720,11 @@ const resolveCombat = async (
     combatState.value.playerSelectedCard = null;
     combatState.value.phase = CombatPhase.PLAYER_INPUT;
     return;
+  }
+
+  if (!options.deferTurnCleanup) {
+    await processTurnEndInHandCardEffects();
+    if (playerStats.value.hp <= 0 || enemyStats.value.hp <= 0) return;
   }
 
   // End-of-turn effect processing (armor halving, stun clear, etc.)
@@ -9538,6 +9777,8 @@ const resolveCombat = async (
   const playerSkipArmorDecay = armorDecaySkippedThisTurn.value.player;
   const enemySkipArmorDecay = armorDecaySkippedThisTurn.value.enemy;
   const enemyPoisonStacksBeforeEnd = Math.max(0, getEffectStacks(enemyStats.value, ET.POISON));
+  processLustIllusionTurnEndForSide('player');
+  processLustIllusionTurnEndForSide('enemy');
   const pEndLogs = processOnTurnEnd(playerStats.value);
   const eEndLogs = processOnTurnEnd(enemyStats.value);
   if (playerSkipArmorDecay) {
@@ -9682,6 +9923,7 @@ const resolveCombat = async (
   }
 
   // Cleanup
+  await playCardsToDiscardAnimation([...combatState.value.playerHand]);
   combatState.value.discardPile = [...combatState.value.discardPile, ...combatState.value.playerHand];
   combatState.value.playerHand = [];
   resetTwinTurnSelections();
@@ -9904,6 +10146,27 @@ watch(
   transform-origin: center center;
 }
 
+.hand-card-motion-draw {
+  z-index: 70;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: hand-card-draw-rise calc(0.62s / var(--combat-speed-multiplier)) cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+.hand-card-motion-discard {
+  z-index: 70;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: hand-card-discard-drop calc(0.56s / var(--combat-speed-multiplier)) cubic-bezier(0.3, 0.78, 0.2, 1) both;
+}
+
+.hand-card-motion-turn_end_in_hand {
+  z-index: 75;
+  pointer-events: none;
+  will-change: transform, opacity, filter;
+  animation: hand-card-turn-end-center calc(0.82s / var(--combat-speed-multiplier)) cubic-bezier(0.2, 0.86, 0.2, 1) both;
+}
+
 .resolved-card-visual-inner--player.resolved-card-visual-inner--attack {
   animation: card-attack-player calc(0.93s / var(--combat-speed-multiplier)) cubic-bezier(0.18, 0.9, 0.2, 1) forwards;
 }
@@ -10009,6 +10272,63 @@ watch(
   100% {
     opacity: 0;
     transform: scale(0.96);
+  }
+}
+
+@keyframes hand-card-draw-rise {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 58vh, 0);
+  }
+  78% {
+    opacity: 1;
+    transform: translate3d(0, -10px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes hand-card-discard-drop {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  24% {
+    opacity: 1;
+    transform: translate3d(0, -14px, 0);
+  }
+  72% {
+    opacity: 1;
+    transform: translate3d(0, 48vh, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 58vh, 0);
+  }
+}
+
+@keyframes hand-card-turn-end-center {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    filter: drop-shadow(0 0 14px rgba(217, 70, 239, 0.18));
+  }
+  45% {
+    opacity: 1;
+    transform: translate3d(0, -43vh, 0) scale(1.06);
+    filter: drop-shadow(0 0 30px rgba(217, 70, 239, 0.58));
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(0, -43vh, 0) scale(1.02);
+    filter: drop-shadow(0 0 44px rgba(244, 114, 182, 0.72));
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -43vh, 0) scale(0.9);
+    filter: drop-shadow(0 0 0 rgba(244, 114, 182, 0));
   }
 }
 

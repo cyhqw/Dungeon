@@ -3134,6 +3134,106 @@ const BLOOD_BAT_LOW_GLIDE: CardData = {
   description: '点数-1，闪避；若闪避成功或对方跳过回合，施加1层性兴奋',
 };
 
+/** 幻象轰炸：消耗2MP，点数+2，造成0.8倍点数伤害，2连击，施加2层淫靡幻象 */
+const 碎镜蝠_幻象轰炸: CardData = {
+  id: 'enemy_broken_mirror_bat_illusion_bombard',
+  name: '幻象轰炸',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 2,
+  calculation: { multiplier: 1.0, addition: 2 },
+  damageLogic: { mode: 'relative', scale: 0.8, scaleAddition: 0 },
+  hitCount: 2,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.LUST_ILLUSION, target: 'enemy', valueMode: 'fixed', fixedValue: 2 },
+  ],
+  description: '消耗2MP，点数+2，造成0.8倍点数伤害，2连击，施加2层淫靡幻象',
+};
+
+/** 色情万花筒：消耗8MP，点数+6，造成0.8倍点数伤害。对方每有1层淫靡幻象则额外造成1次伤害 */
+const 碎镜蝠_色情万花筒: CardData = {
+  id: 'enemy_broken_mirror_bat_erotic_kaleidoscope',
+  name: '色情万花筒',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 8,
+  calculation: { multiplier: 1.0, addition: 6 },
+  damageLogic: { mode: 'relative', scale: 0.8, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '消耗8MP，点数+6，造成0.8倍点数伤害。对方每有1层淫靡幻象则额外造成1次伤害',
+};
+
+/** 自我剥离：若玩家身上有淫靡幻象，点数*2。造成1倍点数伤害，施加5层流血与1层淫靡幻象 */
+const 碎镜蝠_自我剥离: CardData = {
+  id: 'enemy_broken_mirror_bat_self_stripping',
+  name: '自我剥离',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.BLEED, target: 'enemy', valueMode: 'fixed', fixedValue: 5 },
+    { kind: 'apply_buff', effectType: EffectType.LUST_ILLUSION, target: 'enemy', valueMode: 'fixed', fixedValue: 1 },
+  ],
+  description: '若玩家身上有淫靡幻象，点数*2。造成1倍点数伤害，施加5层流血与1层淫靡幻象',
+};
+
+/** 折射之翼：闪避，若本回合没有收到直接伤害，则施加1层淫靡幻象 */
+const 碎镜蝠_折射之翼: CardData = {
+  id: 'enemy_broken_mirror_bat_refractive_wings',
+  name: '折射之翼',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_no_direct_damage_taken_this_turn'],
+      kind: 'apply_buff',
+      effectType: EffectType.LUST_ILLUSION,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '闪避，若本回合没有收到直接伤害，则施加1层淫靡幻象',
+};
+
+/** 堕落的人格镜像：诅咒，可打出；回合结束时若保留在手中则受到5点伤害 */
+const 堕落的人格镜像: CardData = {
+  id: 'curse_fallen_personality_mirror',
+  name: '堕落的人格镜像',
+  type: CardType.CURSE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_turn_end_in_hand'],
+      kind: 'damage',
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 5,
+    },
+  ],
+  description: '回合结束时若保留在手中，则受到5点伤害',
+};
+
 /** 献礼微笑：施加2层性兴奋 */
 const BLOOD_SERVANT_OFFERING_SMILE: CardData = {
   id: 'enemy_blood_servant_offering_smile',
@@ -8107,6 +8207,11 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [BLOOD_BAT_ULTRASONIC_STIMULUS.name, BLOOD_BAT_ULTRASONIC_STIMULUS],
   [BLOOD_BAT_SWARM_RESONANCE.name, BLOOD_BAT_SWARM_RESONANCE],
   [BLOOD_BAT_LOW_GLIDE.name, BLOOD_BAT_LOW_GLIDE],
+  [碎镜蝠_幻象轰炸.name, 碎镜蝠_幻象轰炸],
+  [碎镜蝠_色情万花筒.name, 碎镜蝠_色情万花筒],
+  [碎镜蝠_自我剥离.name, 碎镜蝠_自我剥离],
+  [碎镜蝠_折射之翼.name, 碎镜蝠_折射之翼],
+  [堕落的人格镜像.name, 堕落的人格镜像],
   [BLOOD_SERVANT_OFFERING_SMILE.name, BLOOD_SERVANT_OFFERING_SMILE],
   [BLOOD_SERVANT_INVITATION.name, BLOOD_SERVANT_INVITATION],
   [BLOOD_SERVANT_LURE.name, BLOOD_SERVANT_LURE],

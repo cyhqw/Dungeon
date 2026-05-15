@@ -42,6 +42,8 @@ export const EFFECT_FA_ICON_CLASS: Partial<Record<EffectType, string>> = {
   [ET.MANA_SPRING]: 'fa-brands fa-drupal',
   [ET.VOID_TAINT]: 'fa-brands fa-cloudversify',
   [ET.SWARM]: 'fa-solid fa-bugs',
+  [ET.MIRROR_SWARM]: 'fa-solid fa-bugs',
+  [ET.LUST_ILLUSION]: 'fa-brands fa-snapchat',
   [ET.BLOOD_COCOON]: 'fa-brands fa-battle-net',
   [ET.INDOMITABLE]: 'fa-solid fa-shield',
   [ET.MIRROR_REGENERATION]: 'fa-solid fa-border-none',
