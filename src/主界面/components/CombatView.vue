@@ -983,6 +983,7 @@ const enemyDef = getEnemyByName(props.enemyName, currentFloorNumber);
 const enemyDisplayName = enemyDef?.name ?? props.enemyName;
 const isTwinBattle = Boolean(enemyDef?.selectTwinCards);
 const isMirrorCloneBattle = enemyDisplayName === '镜像分身';
+const usesPlayerPreviousPointDice = isMirrorCloneBattle || enemyDisplayName === '米拉';
 
 // --- Portrait URLs ---
 const IMAGE_CDN_ROOT = 'https://img.vinsimage.org';
@@ -1240,6 +1241,10 @@ const EFFECT_ICON_COMPONENTS: Partial<Record<EffectType, any>> = {
   [ET.INDOMITABLE]: Heart,
   [ET.MIRROR_REGENERATION]: SquareDashed,
   [ET.MIMICKER]: Copy,
+  [ET.DANCE_HALL]: Sparkles,
+  [ET.CO_DANCE]: Link2,
+  [ET.SOLITUDE]: Heart,
+  [ET.REFLECTION]: SquareDashed,
   [ET.PEEP_FORBIDDEN]: Eye,
   [ET.BLIND_ASH]: EyeOff,
   [ET.COGNITIVE_INTERFERENCE]: Brain,
@@ -1841,6 +1846,10 @@ const currentTurnMagicReflect = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
 });
+const reflectionActiveThisTurn = ref<Record<BattleSide, boolean>>({
+  player: false,
+  enemy: false,
+});
 const temporaryDamageBoostToRemoveAtTurnEnd = ref<Record<BattleSide, number>>({
   player: 0,
   enemy: 0,
@@ -2189,6 +2198,19 @@ const applyDamageToSideWithRelics = (
     );
     adjusted = directDamageResult.damage;
     effectiveTrueDamage = directDamageResult.isTrueDamage;
+  }
+  if (damageOptions.isDirectDamage) {
+    const reflectionStacks = getEffectStacks(target, ET.REFLECTION);
+    if (reflectionStacks > 0 || reflectionActiveThisTurn.value[side]) {
+      if (!reflectionActiveThisTurn.value[side] && reflectionStacks > 0) {
+        reduceEffectStacks(target, ET.REFLECTION, 1);
+        reflectionActiveThisTurn.value[side] = true;
+        const label = side === 'player' ? '我方' : '敌方';
+        log(`<span class="text-violet-300">${label}[倒影] 被直接伤害触发，本回合受到的直接伤害翻倍并转化为真实伤害。</span>`);
+      }
+      adjusted = Math.max(0, Math.floor(adjusted * 2));
+      effectiveTrueDamage = true;
+    }
   }
   const hpBeforeDamage = Math.max(0, Math.floor(target.hp));
   const result = applyDamageToEntity(target, adjusted, effectiveTrueDamage, {
@@ -4591,6 +4613,9 @@ const getCardFinalPoint = (
   if (source === 'enemy' && isTwinBattle && dreamControlPercent.value <= 24) {
     finalPoint *= 1.5;
   }
+  if (card.id === PASS_CARD.id) {
+    finalPoint = 0;
+  }
   if (
     source === 'enemy'
     && getActiveRelicCount('burn_circling_glow') > 0
@@ -4707,7 +4732,7 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
     : calculateFinalPoint({
         baseDice,
         card,
-        entityEffects: attacker.effects,
+        entityEffects: attacker.effects.filter(effect => effect.type !== ET.SOLITUDE),
         relicModifiers: NO_RELIC_MOD,
       });
   const multiplierText = formatPointValue(card.calculation.multiplier);
@@ -4716,6 +4741,12 @@ const buildCardPreviewLines = (source: 'player' | 'enemy', card: CardData, baseD
   lines.push(shriveledHandActive
     ? `干瘪之手：卡牌乘法不触发，加减触发2次 ${additionText}x2 => ${finalPoint}`
     : `卡牌修正 x${multiplierText} ${additionText} => ${finalPoint}`);
+
+  const solitudeBonus = card.id === PASS_CARD.id ? 0 : Math.max(0, getEffectStacks(attacker, ET.SOLITUDE));
+  if (solitudeBonus > 0) {
+    finalPoint += solitudeBonus;
+    lines.push(`孤独 +${solitudeBonus} => ${finalPoint}`);
+  }
 
   if (card.id === 'burn_inferno_judgement') {
     const bonus = Math.floor(getEffectStacks(defender, ET.BURN));
@@ -6315,6 +6346,7 @@ const selectEnemyTwinCards = (): [CardData, CardData] => {
       playerHand: combatState.value.playerHand,
       playerDeck: combatState.value.playerDeck,
       playerDiscard: combatState.value.discardPile,
+      previousPlayerCardType: previousPlayerLastCardType.value,
       turn: combatState.value.turn,
       flags: aiFlags,
     };
@@ -6505,6 +6537,7 @@ const startTurn = () => {
   armorDecaySkippedThisTurn.value.enemy = false;
   turnPointModifier.value.player = 0;
   turnPointModifier.value.enemy = 0;
+  reflectionActiveThisTurn.value = { player: false, enemy: false };
   blankOfBlankActiveThisTurn.value = { player: false, enemy: false };
   blankOfBlankBonusThisTurn.value = { player: 0, enemy: 0 };
   temporaryBarrierToRemoveAtTurnEnd.value = 0;
@@ -6589,7 +6622,7 @@ const startTurn = () => {
   setTimeout(() => {
     if (endCombatPending.value) return;
     const pRawRoll = rollPlayerDiceInRange(playerStats.value.minDice, playerStats.value.maxDice);
-    const eRawRoll = isMirrorCloneBattle && previousPlayerFinalPoint.value !== null
+    const eRawRoll = usesPlayerPreviousPointDice && previousPlayerFinalPoint.value !== null
       ? Math.max(0, Math.floor(previousPlayerFinalPoint.value))
       : Math.floor(Math.random() * (effectiveEnemyMaxDice.value - effectiveEnemyMinDice.value + 1)) + effectiveEnemyMinDice.value;
     const pRoll = consumeChargeOnRoll(playerStats.value, '我方', pRawRoll);
@@ -6641,6 +6674,7 @@ watch(
         activeHandSelectionSkillIdx.value = null;
         pendingAlchemyGoldDelta.value = 0;
         turnPointModifier.value = { player: 0, enemy: 0 };
+        reflectionActiveThisTurn.value = { player: false, enemy: false };
         blankOfBlankActiveThisTurn.value = { player: false, enemy: false };
         blankOfBlankBonusThisTurn.value = { player: 0, enemy: 0 };
         armorDecaySkippedThisTurn.value = { player: false, enemy: false };
@@ -7352,7 +7386,7 @@ const resolveCombat = async (
   const eClashPoint = getCardPreviewPoint('enemy', resolvedEnemyCard, resolvedEnemyDice);
   if (!isEnemyComboPrelude) {
     previousPlayerLastCardType.value = resolvedPlayerCard.id === PASS_CARD.id ? null : resolvedPlayerCard.type;
-    previousPlayerFinalPoint.value = pClashPoint;
+    previousPlayerFinalPoint.value = resolvedPlayerCard.id === PASS_CARD.id ? resolvedPlayerDice : pClashPoint;
     combatState.value.lastPlayedCard = resolvedPlayerCard.id === PASS_CARD.id ? null : resolvedPlayerCard;
   }
 
@@ -7391,6 +7425,43 @@ const resolveCombat = async (
       logRelicMessage(`[火焰灯笼] 跳过回合后，对敌方施加 ${2 * lanternCount} 层燃烧。`);
     }
   }
+
+  const triggerDanceHallForSide = (holderSide: BattleSide, holderCard: CardData, opponentCard: CardData) => {
+    const holder = holderSide === 'player' ? playerStats.value : enemyStats.value;
+    if (getEffectStacks(holder, ET.DANCE_HALL) <= 0) return;
+    const opponentSide = holderSide === 'player' ? 'enemy' : 'player';
+    const holderLabel = holderSide === 'player' ? '我方' : '敌方';
+    const opponentLabel = opponentSide === 'player' ? '我方' : '敌方';
+
+    if (opponentCard.id === PASS_CARD.id) {
+      const opponent = opponentSide === 'player' ? playerStats.value : enemyStats.value;
+      const coDanceBefore = getEffectStacks(opponent, ET.CO_DANCE);
+      const solitudeBefore = getEffectStacks(holder, ET.SOLITUDE);
+      if (getEffectStacks(opponent, ET.CO_DANCE) > 0) {
+        reduceEffectStacks(opponent, ET.CO_DANCE, 1);
+      }
+      if (getEffectStacks(holder, ET.SOLITUDE) > 0) {
+        reduceEffectStacks(holder, ET.SOLITUDE, 1);
+      }
+      const coDanceReduced = Math.min(1, coDanceBefore);
+      const solitudeReduced = Math.min(1, solitudeBefore);
+      if (coDanceReduced > 0 || solitudeReduced > 0) {
+        log(`<span class="text-fuchsia-300">${holderLabel}[舞厅] ${opponentLabel}跳过回合，${opponentLabel}共舞 -${coDanceReduced}，自身孤独 -${solitudeReduced}。</span>`);
+      }
+      return;
+    }
+
+    if (holderCard.id === PASS_CARD.id) return;
+    if (holderCard.type === opponentCard.type) {
+      if (applyStatusEffectWithRelics(opponentSide, ET.CO_DANCE, 1, { source: 'effect:dance_hall' })) {
+        log(`<span class="text-fuchsia-300">${holderLabel}[舞厅] 双方使用同类型卡牌，${opponentLabel}获得 1 层共舞。</span>`);
+      }
+    } else if (applyStatusEffectWithRelics(holderSide, ET.SOLITUDE, 1, { source: 'effect:dance_hall' })) {
+      log(`<span class="text-fuchsia-300">${holderLabel}[舞厅] 双方使用不同类型卡牌，自身获得 1 层孤独。</span>`);
+    }
+  };
+  triggerDanceHallForSide('player', resolvedPlayerCard, resolvedEnemyCard);
+  triggerDanceHallForSide('enemy', resolvedEnemyCard, resolvedPlayerCard);
 
   applyToxinSpreadOnPhysicalPlay('player', resolvedPlayerCard);
   applyToxinSpreadOnPhysicalPlay('enemy', resolvedEnemyCard);
@@ -8607,6 +8678,34 @@ const resolveCombat = async (
         finalizeAndTrack();
         return;
       }
+      if (card.id === 'enemy_mira_invite_to_dance') {
+        syncCurrentPointForUi();
+        const opponentCard = source === 'player' ? resolvedEnemyCard : resolvedPlayerCard;
+        if (opponentCard.type === CardType.PHYSICAL || opponentCard.type === CardType.MAGIC) {
+          if (applyStatusEffectWithRelics(defenderSide, ET.CONTROLLED, 1, { source: card.id, lockDecayThisTurn: true })) {
+            log(`<span class="text-fuchsia-300">${label}【${card.name}】邀舞成功，对方获得 1 层被操控。</span>`);
+          }
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】对方没有打出物理/魔法牌，邀舞未生效。</span>`);
+        }
+        finalizeAndTrack();
+        return;
+      }
+      if (card.id === 'enemy_mira_mimicry') {
+        syncCurrentPointForUi();
+        applyCardEffects();
+        const debuffs = attacker.effects.filter((effect) => effect.stacks > 0 && EFFECT_REGISTRY[effect.type]?.polarity === 'debuff');
+        if (debuffs.length > 0) {
+          const picked = debuffs[Math.floor(Math.random() * debuffs.length)]!;
+          removeEffect(attacker, picked.type);
+          const effectName = EFFECT_REGISTRY[picked.type]?.name ?? picked.type;
+          log(`<span class="text-cyan-300">${label}【${card.name}】清除了自身的【${effectName}】。</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】未找到可清除的负面状态。</span>`);
+        }
+        finalizeAndTrack();
+        return;
+      }
       if (card.id === 'enemy_dream_demon_twin_mioto_cleanse') {
         syncCurrentPointForUi();
         const debuffs = attacker.effects.filter((effect) => EFFECT_REGISTRY[effect.type]?.polarity === 'debuff');
@@ -9143,6 +9242,24 @@ const resolveCombat = async (
         });
         const restored = Math.max(0, manaResult.actualDelta);
         log(`<span class="text-blue-300">${label}【${card.name}】回收 ${restored} 点魔力</span>`);
+      }
+      if (card.id === 'enemy_mira_shattered_mirror_waltz' && totalActualDamageDealt > 0) {
+        const { healed } = healForSide(source, totalActualDamageDealt, {
+          sourceSide: source,
+          reason: `卡牌【${card.name}】吸血`,
+        });
+        log(`<span class="text-green-300">${label}【${card.name}】回复了 ${healed} 点生命</span>`);
+      }
+      if (card.id === 'enemy_mira_mirror_refraction') {
+        const debuffs = attacker.effects.filter((effect) => effect.stacks > 0 && EFFECT_REGISTRY[effect.type]?.polarity === 'debuff');
+        if (debuffs.length > 0) {
+          const picked = debuffs[Math.floor(Math.random() * debuffs.length)]!;
+          removeEffect(attacker, picked.type);
+          const effectName = EFFECT_REGISTRY[picked.type]?.name ?? picked.type;
+          log(`<span class="text-cyan-300">${label}【${card.name}】清除了自身的【${effectName}】。</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】未找到可清除的负面状态。</span>`);
+        }
       }
       if (card.id === 'basic_element_attack') {
         const elementalStacks = Math.max(0, Math.floor(finalPoint));

@@ -480,6 +480,42 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     maxStacks: 0,
     description: '我即是你',
   },
+  [EffectType.DANCE_HALL]: {
+    type: EffectType.DANCE_HALL,
+    name: '舞厅',
+    polarity: 'trait',
+    timings: ['passive'],
+    stackable: true,
+    maxStacks: 0,
+    description: '对方与自己使用同类型卡牌时，为对方施加1层共舞；不同类型时，为自己施加1层孤独；对方跳过回合时，清除对方1层共舞与自身1层孤独',
+  },
+  [EffectType.CO_DANCE]: {
+    type: EffectType.CO_DANCE,
+    name: '共舞',
+    polarity: 'debuff',
+    timings: ['onTurnStart', 'onBeforeDamage'],
+    stackable: true,
+    maxStacks: 0,
+    description: '造成与受到的伤害增加等同于层数的点数；回合开始时若层数大于等于5，则清除5层共舞并为自身施加1层倒影',
+  },
+  [EffectType.SOLITUDE]: {
+    type: EffectType.SOLITUDE,
+    name: '孤独',
+    polarity: 'buff',
+    timings: ['onCardPlay'],
+    stackable: true,
+    maxStacks: 0,
+    description: '打出卡牌时，自身点数增加对应层数的点数',
+  },
+  [EffectType.REFLECTION]: {
+    type: EffectType.REFLECTION,
+    name: '倒影',
+    polarity: 'debuff',
+    timings: ['onBeforeDamage'],
+    stackable: true,
+    maxStacks: 0,
+    description: '下次收到的直接伤害翻倍且转化为真伤，触发后层数-1；一次触发会影响本回合内收到的所有直接伤害',
+  },
   [EffectType.PEEP_FORBIDDEN]: {
     type: EffectType.PEEP_FORBIDDEN,
     name: '虚实不明',
@@ -766,6 +802,10 @@ const EFFECT_REGISTRY_ORDER_REQUESTED: readonly EffectType[] = [
   EffectType.MIRROR_REGENERATION,
   EffectType.MIRROR_SWARM,
   EffectType.MIMICKER,
+  EffectType.DANCE_HALL,
+  EffectType.CO_DANCE,
+  EffectType.SOLITUDE,
+  EffectType.REFLECTION,
   EffectType.REGEN,
   EffectType.SELF_REPAIR,
   EffectType.IRIS_AMBER,
@@ -1337,6 +1377,13 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     const picked = ELEMENTAL_DEBUFF_TYPES[Math.floor(Math.random() * ELEMENTAL_DEBUFF_TYPES.length)]!;
     result.applyToOpponent.push({ type: picked, stacks: elementAttachStacks });
     result.logs.push(`[元素附加] 为对手施加 ${elementAttachStacks} 层${EFFECT_REGISTRY_RAW[picked]?.name ?? picked}。`);
+  }
+
+  const coDanceStacks = getEffectStacks(entity, EffectType.CO_DANCE);
+  if (coDanceStacks >= 5) {
+    reduceEffectStacks(entity, EffectType.CO_DANCE, 5);
+    applyEffect(entity, EffectType.REFLECTION, 1, { source: 'effect:co_dance' });
+    result.logs.push('[共舞] 层数达到5层，清除5层共舞并获得1层倒影。');
   }
 
   return result;

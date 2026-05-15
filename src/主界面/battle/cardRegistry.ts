@@ -7823,6 +7823,201 @@ const 冰锥: CardData = {
   description: '对方每有3点寒冷点数额外+1，造成1倍最终点数伤害',
 };
 
+const 米拉_镜面折射: CardData = {
+  id: 'enemy_mira_mirror_refraction',
+  name: '镜面折射',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.0, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '造成1倍点数伤害，清除自身随机一种负面状态',
+};
+
+const 米拉_碎镜回旋: CardData = {
+  id: 'enemy_mira_shattered_mirror_waltz',
+  name: '碎镜回旋',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.4, scaleAddition: 0 },
+  hitCount: 3,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  description: '银白色的镜片裙摆随旋转飞舞。造成0.4倍点数伤害，3连击，回复等同于造成的伤害点生命',
+};
+
+const 米拉_孤寂独舞: CardData = {
+  id: 'enemy_mira_lonely_solo',
+  name: '孤寂独舞',
+  type: CardType.PHYSICAL,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 2.0, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 1.5, scaleAddition: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  ignoreDodge: true,
+  description: '为什么不看着我！点数*2，造成1.5倍点数伤害，无视闪避',
+};
+
+const 米拉_镜像创生: CardData = {
+  id: 'enemy_mira_mirror_creation',
+  name: '镜像创生',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 3,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  hitCount: 1,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.VULNERABLE, target: 'enemy', valueMode: 'point_scale', scale: 0.2 },
+  ],
+  ignoreDodge: true,
+  description: '消耗3，点数*1.5，施加0.2倍点数易伤，无视闪避',
+};
+
+const 米拉_碎镜嘉年华: CardData = {
+  id: 'enemy_mira_shattered_mirror_carnival',
+  name: '碎镜嘉年华',
+  type: CardType.MAGIC,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 5,
+  calculation: { multiplier: 1.5, addition: 0 },
+  damageLogic: { mode: 'relative', scale: 0.3, scaleAddition: 0 },
+  hitCount: 3,
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [],
+  manaDrain: 6,
+  description: '消耗5，点数*1.5，造成0.3倍点数的伤害，3连击，法力汲取6',
+};
+
+const 米拉_邀舞: CardData = {
+  id: 'enemy_mira_invite_to_dance',
+  name: '邀舞',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_opponent_skip'],
+      kind: 'heal',
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '请赐我一支舞。若对方打出物理/魔法牌，施加1层被操控；若对方跳过回合，回复1倍点数生命',
+};
+
+const 米拉_拟态: CardData = {
+  id: 'enemy_mira_mimicry',
+  name: '拟态',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.CO_DAMAGE, target: 'self', valueMode: 'fixed', fixedValue: 1 },
+    {
+      triggers: ['on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.TEMP_MAX_HP,
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 1.0,
+    },
+  ],
+  description: '获得1层共损，随机清除自身一种负面状态；若对方跳过回合，增加1倍点数的临时生命上限',
+};
+
+const 米拉_无尽舞会: CardData = {
+  id: 'enemy_mira_endless_ball',
+  name: '无尽舞会',
+  type: CardType.FUNCTION,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 1.0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    { kind: 'apply_buff', effectType: EffectType.DAMAGE_BOOST, target: 'self', valueMode: 'fixed', fixedValue: 2 },
+    {
+      triggers: ['on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.WEAKEN,
+      target: 'enemy',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '自身获得2层增伤；若对方跳过回合，施加1层虚弱',
+};
+
+const 米拉_迎合: CardData = {
+  id: 'enemy_mira_accord',
+  name: '迎合',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 0, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'apply_buff',
+      effectType: EffectType.CO_DANCE,
+      target: 'self',
+      valueMode: 'fixed',
+      fixedValue: 1,
+    },
+  ],
+  description: '我们的步伐很契合。点数*0，闪避。若闪避成功或对方跳过回合时，施加1层【共舞】',
+};
+
+const 米拉_孤镜独舞: CardData = {
+  id: 'enemy_mira_lone_mirror_dance',
+  name: '孤镜独舞',
+  type: CardType.DODGE,
+  category: '敌人',
+  rarity: '普通',
+  manaCost: 0,
+  calculation: { multiplier: 0.1, addition: 0 },
+  damageLogic: { mode: 'fixed', value: 0 },
+  traits: { combo: false, reroll: 'none', draw: false },
+  cardEffects: [
+    {
+      triggers: ['on_dodge_success', 'on_opponent_skip'],
+      kind: 'heal',
+      target: 'self',
+      valueMode: 'point_scale',
+      scale: 10,
+    },
+  ],
+  description: '点数*0.1，闪避成功或对方跳过回合时，恢复10倍点数生命值',
+};
+
 const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [空白.name, 空白],
   [法力涌动.name, 法力涌动],
@@ -8227,6 +8422,16 @@ const CARD_REGISTRY: ReadonlyMap<string, CardData> = new Map<string, CardData>([
   [PILLOW_SPIRIT_ETERNAL_SLUMBER.name, PILLOW_SPIRIT_ETERNAL_SLUMBER],
   [PILLOW_SPIRIT_NAP_INVITATION.name, PILLOW_SPIRIT_NAP_INVITATION],
   [PILLOW_SPIRIT_ETERNAL_SLEEP.name, PILLOW_SPIRIT_ETERNAL_SLEEP],
+  [米拉_镜面折射.name, 米拉_镜面折射],
+  [米拉_碎镜回旋.name, 米拉_碎镜回旋],
+  [米拉_孤寂独舞.name, 米拉_孤寂独舞],
+  [米拉_镜像创生.name, 米拉_镜像创生],
+  [米拉_碎镜嘉年华.name, 米拉_碎镜嘉年华],
+  [米拉_邀舞.name, 米拉_邀舞],
+  [米拉_拟态.name, 米拉_拟态],
+  [米拉_无尽舞会.name, 米拉_无尽舞会],
+  [米拉_迎合.name, 米拉_迎合],
+  [米拉_孤镜独舞.name, 米拉_孤镜独舞],
   [DREAM_DEMON_TWIN_MISA_SILVER_WEB.name, DREAM_DEMON_TWIN_MISA_SILVER_WEB],
   [DREAM_DEMON_TWIN_MISA_DRAIN.name, DREAM_DEMON_TWIN_MISA_DRAIN],
   [DREAM_DEMON_TWIN_MISA_OBSERVE.name, DREAM_DEMON_TWIN_MISA_OBSERVE],

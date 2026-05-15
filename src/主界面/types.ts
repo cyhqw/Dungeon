@@ -313,6 +313,14 @@ export enum EffectType {
   MIRROR_REGENERATION = '镜面再生',
   /** 模仿者 — 本身无直接效果，用于说明特殊模仿行动逻辑 */
   MIMICKER = '模仿者',
+  /** 舞厅 — 根据双方出牌类型为对方施加共舞或为自身施加孤独 */
+  DANCE_HALL = '舞厅',
+  /** 共舞 — 造成与受到的伤害增加，层数足够时转化为倒影 */
+  CO_DANCE = '共舞',
+  /** 孤独 — 打出卡牌时增加自身最终点数 */
+  SOLITUDE = '孤独',
+  /** 倒影 — 下次受到的直接伤害翻倍并转化为真实伤害 */
+  REFLECTION = '倒影',
   /** 虚实不明 — 仅在出牌阶段干扰对方骰子UI显示（永久debuff） */
   PEEP_FORBIDDEN = '虚实不明',
   /** 思绪被扰乱 — 仅在出牌阶段干扰自身骰子UI显示（永久debuff） */
@@ -523,6 +531,8 @@ export interface EnemyAIContext {
   playerDeck?: readonly CardData[];
   /** 玩家弃牌堆 */
   playerDiscard?: readonly CardData[];
+  /** 玩家上一回合实际打出的卡牌类型；跳过回合时为 null */
+  previousPlayerCardType?: CardType | null;
   /** 当前回合数 */
   turn: number;
   /**

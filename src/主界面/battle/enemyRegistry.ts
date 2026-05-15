@@ -588,6 +588,19 @@ const MASK_ATTENDANT_CARD = {
   FACELESS_BIND: 'enemy_mask_attendant_faceless_bind',
 } as const;
 
+const MIRA_CARD = {
+  MIRROR_REFRACTION: 'enemy_mira_mirror_refraction',
+  SHATTERED_MIRROR_WALTZ: 'enemy_mira_shattered_mirror_waltz',
+  LONELY_SOLO: 'enemy_mira_lonely_solo',
+  MIRROR_CREATION: 'enemy_mira_mirror_creation',
+  SHATTERED_MIRROR_CARNIVAL: 'enemy_mira_shattered_mirror_carnival',
+  INVITE_TO_DANCE: 'enemy_mira_invite_to_dance',
+  MIMICRY: 'enemy_mira_mimicry',
+  ENDLESS_BALL: 'enemy_mira_endless_ball',
+  ACCORD: 'enemy_mira_accord',
+  LONE_MIRROR_DANCE: 'enemy_mira_lone_mirror_dance',
+} as const;
+
 function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
   const floor = Math.max(1, Math.floor(currentFloor));
   return {
@@ -631,11 +644,7 @@ function create沐芯兰Definition(currentFloor: number): EnemyDefinition {
       }
 
       const getStacks = (t: EffectType) => ctx.playerStats.effects.find(e => e.type === t)?.stacks ?? 0;
-      const playerCards = [
-        ...(ctx.playerHand ?? []),
-        ...(ctx.playerDeck ?? []),
-        ...(ctx.playerDiscard ?? []),
-      ];
+      const playerCards = [...(ctx.playerHand ?? []), ...(ctx.playerDeck ?? []), ...(ctx.playerDiscard ?? [])];
       const playerCurseCount = playerCards.filter(card => card.type === CardType.CURSE).length;
       if (ctx.enemyStats.hp < ctx.enemyStats.maxHp * 0.1 && playerCurseCount >= 2) {
         return pickCardById(ctx, MUXINLAN_CARD.SUBLIMATION);
@@ -1300,42 +1309,58 @@ const 赛琳娜: EnemyDefinition = {
       return pickCardById(ctx, SELINA_CARD.HOSPITALITY);
     }
 
-    if (ctx.playerStats.maxHp > 0 && ctx.playerStats.hp <= ctx.playerStats.maxHp * 0.2 && ctx.flags.selinaDetainUsed !== true) {
+    if (
+      ctx.playerStats.maxHp > 0 &&
+      ctx.playerStats.hp <= ctx.playerStats.maxHp * 0.2 &&
+      ctx.flags.selinaDetainUsed !== true
+    ) {
       ctx.flags.selinaDetainUsed = true;
       return pickCardById(ctx, SELINA_CARD.DETAIN);
     }
 
     if (ctx.enemyStats.mp >= 5) {
-      return pickCardById(ctx, weightedRandomWithoutImmediateRepeat(ctx, 'selinaHighManaLastCardId', [
-        { value: SELINA_CARD.SPACE_COMPRESSION_CRUSHBONE, weight: 15 },
-        { value: SELINA_CARD.DIMENSION_STRIP, weight: 20 },
-        { value: SELINA_CARD.SPACE_FOLD, weight: 20 },
-        { value: SELINA_CARD.HOSPITALITY, weight: 10 },
-        { value: SELINA_CARD.PHASE_INTO_SPACE, weight: 35 },
-      ]));
+      return pickCardById(
+        ctx,
+        weightedRandomWithoutImmediateRepeat(ctx, 'selinaHighManaLastCardId', [
+          { value: SELINA_CARD.SPACE_COMPRESSION_CRUSHBONE, weight: 15 },
+          { value: SELINA_CARD.DIMENSION_STRIP, weight: 20 },
+          { value: SELINA_CARD.SPACE_FOLD, weight: 20 },
+          { value: SELINA_CARD.HOSPITALITY, weight: 10 },
+          { value: SELINA_CARD.PHASE_INTO_SPACE, weight: 35 },
+        ]),
+      );
     }
 
     if (ctx.enemyStats.mp >= 4) {
-      return pickCardById(ctx, weightedRandomWithoutImmediateRepeat(ctx, 'selinaMidManaLastCardId', [
-        { value: SELINA_CARD.SPACE_COMPRESSION_CRUSHBONE, weight: 20 },
-        { value: SELINA_CARD.DIMENSION_STRIP, weight: 25 },
-        { value: SELINA_CARD.HOSPITALITY, weight: 15 },
-        { value: SELINA_CARD.PHASE_INTO_SPACE, weight: 40 },
-      ]));
+      return pickCardById(
+        ctx,
+        weightedRandomWithoutImmediateRepeat(ctx, 'selinaMidManaLastCardId', [
+          { value: SELINA_CARD.SPACE_COMPRESSION_CRUSHBONE, weight: 20 },
+          { value: SELINA_CARD.DIMENSION_STRIP, weight: 25 },
+          { value: SELINA_CARD.HOSPITALITY, weight: 15 },
+          { value: SELINA_CARD.PHASE_INTO_SPACE, weight: 40 },
+        ]),
+      );
     }
 
     if (ctx.enemyStats.mp >= 1) {
-      return pickCardById(ctx, weightedRandom<string>([
-        { value: SELINA_CARD.SPACE_COMPRESSION_CRUSHBONE, weight: 25 },
-        { value: SELINA_CARD.HOSPITALITY, weight: 25 },
-        { value: SELINA_CARD.PHASE_INTO_SPACE, weight: 50 },
-      ]));
+      return pickCardById(
+        ctx,
+        weightedRandom<string>([
+          { value: SELINA_CARD.SPACE_COMPRESSION_CRUSHBONE, weight: 25 },
+          { value: SELINA_CARD.HOSPITALITY, weight: 25 },
+          { value: SELINA_CARD.PHASE_INTO_SPACE, weight: 50 },
+        ]),
+      );
     }
 
-    return pickCardById(ctx, weightedRandom<string>([
-      { value: SELINA_CARD.SPACE_COMPRESSION_CRUSHBONE, weight: 50 },
-      { value: SELINA_CARD.PHASE_INTO_SPACE, weight: 50 },
-    ]));
+    return pickCardById(
+      ctx,
+      weightedRandom<string>([
+        { value: SELINA_CARD.SPACE_COMPRESSION_CRUSHBONE, weight: 50 },
+        { value: SELINA_CARD.PHASE_INTO_SPACE, weight: 50 },
+      ]),
+    );
   },
 };
 
@@ -1433,7 +1458,9 @@ const 碎镜蝠: EnemyDefinition = {
     BROKEN_MIRROR_BAT_CARD.REFRACTIVE_WINGS,
   ]),
   selectCard(ctx: EnemyAIContext) {
-    const playerHasLustIllusion = ctx.playerStats.effects.some(e => e.type === EffectType.LUST_ILLUSION && e.stacks > 0);
+    const playerHasLustIllusion = ctx.playerStats.effects.some(
+      e => e.type === EffectType.LUST_ILLUSION && e.stacks > 0,
+    );
 
     if (ctx.enemyStats.mp >= 2) {
       const pool: Array<{ value: string; weight: number }> = [
@@ -1544,13 +1571,11 @@ const 梦魇蛾: EnemyDefinition = {
   ]),
   selectCard(ctx: EnemyAIContext) {
     const lowHp = ctx.enemyStats.maxHp > 0 && ctx.enemyStats.hp <= ctx.enemyStats.maxHp * 0.4;
-    const targetHasScalePowder = ctx.playerStats.effects.some(effect => (
-      effect.type === EffectType.SCALE_POWDER && effect.stacks > 0
-    ));
+    const targetHasScalePowder = ctx.playerStats.effects.some(
+      effect => effect.type === EffectType.SCALE_POWDER && effect.stacks > 0,
+    );
 
-    const buildWeightedPool = (
-      basePool: { value: string; weight: number }[],
-    ): { value: string; weight: number }[] => {
+    const buildWeightedPool = (basePool: { value: string; weight: number }[]): { value: string; weight: number }[] => {
       const pool = [...basePool];
       if (lowHp) {
         pool.push({ value: NIGHTMARE_MOTH_CARD.SCALE_POWDER_BURST, weight: 100 });
@@ -1562,19 +1587,23 @@ const 梦魇蛾: EnemyDefinition = {
     };
 
     if (ctx.enemyStats.mp >= 6) {
-      const chosen = weightedRandom<string>(buildWeightedPool([
-        { value: NIGHTMARE_MOTH_CARD.AFTERIMAGE_DUST, weight: 20 },
-        { value: NIGHTMARE_MOTH_CARD.SCALE_POWDER_HYPNOSIS, weight: 20 },
-        { value: NIGHTMARE_MOTH_CARD.BLISSFUL_DREAM, weight: 50 },
-      ]));
+      const chosen = weightedRandom<string>(
+        buildWeightedPool([
+          { value: NIGHTMARE_MOTH_CARD.AFTERIMAGE_DUST, weight: 20 },
+          { value: NIGHTMARE_MOTH_CARD.SCALE_POWDER_HYPNOSIS, weight: 20 },
+          { value: NIGHTMARE_MOTH_CARD.BLISSFUL_DREAM, weight: 50 },
+        ]),
+      );
       return pickCardById(ctx, chosen);
     }
 
     if (ctx.enemyStats.mp >= 3) {
-      const chosen = weightedRandom<string>(buildWeightedPool([
-        { value: NIGHTMARE_MOTH_CARD.AFTERIMAGE_DUST, weight: 50 },
-        { value: NIGHTMARE_MOTH_CARD.SCALE_POWDER_HYPNOSIS, weight: 50 },
-      ]));
+      const chosen = weightedRandom<string>(
+        buildWeightedPool([
+          { value: NIGHTMARE_MOTH_CARD.AFTERIMAGE_DUST, weight: 50 },
+          { value: NIGHTMARE_MOTH_CARD.SCALE_POWDER_HYPNOSIS, weight: 50 },
+        ]),
+      );
       return pickCardById(ctx, chosen);
     }
 
@@ -1592,10 +1621,7 @@ const 枕头精: EnemyDefinition = {
     maxDice: 2,
     effects: [],
   },
-  deck: buildDeckById([
-    PILLOW_SPIRIT_CARD.NAP_INVITATION,
-    PILLOW_SPIRIT_CARD.ETERNAL_SLEEP,
-  ]),
+  deck: buildDeckById([PILLOW_SPIRIT_CARD.NAP_INVITATION, PILLOW_SPIRIT_CARD.ETERNAL_SLEEP]),
   selectCard(ctx: EnemyAIContext) {
     const chosen = weightedRandom<string>([
       { value: PILLOW_SPIRIT_CARD.NAP_INVITATION, weight: 75 },
@@ -1637,18 +1663,24 @@ const 梦魔双子: EnemyDefinition = {
       return pickCardById(ctx, DREAM_DEMON_TWIN_CARD.MISA_NIGHTMARE_DOMINATION);
     }
     if (ctx.turn % 2 === 1) {
-      return pickCardById(ctx, weightedRandom<string>([
-        { value: DREAM_DEMON_TWIN_CARD.MISA_OBSERVE, weight: 50 },
-        { value: DREAM_DEMON_TWIN_CARD.MISA_PROTECT, weight: 50 },
-      ]));
+      return pickCardById(
+        ctx,
+        weightedRandom<string>([
+          { value: DREAM_DEMON_TWIN_CARD.MISA_OBSERVE, weight: 50 },
+          { value: DREAM_DEMON_TWIN_CARD.MISA_PROTECT, weight: 50 },
+        ]),
+      );
     }
     if (ctx.enemyStats.mp >= 6) {
       return pickCardById(ctx, DREAM_DEMON_TWIN_CARD.MISA_GATHER_NET);
     }
-    return pickCardById(ctx, weightedRandom<string>([
-      { value: DREAM_DEMON_TWIN_CARD.MISA_SILVER_WEB, weight: 50 },
-      { value: DREAM_DEMON_TWIN_CARD.MISA_DRAIN, weight: 50 },
-    ]));
+    return pickCardById(
+      ctx,
+      weightedRandom<string>([
+        { value: DREAM_DEMON_TWIN_CARD.MISA_SILVER_WEB, weight: 50 },
+        { value: DREAM_DEMON_TWIN_CARD.MISA_DRAIN, weight: 50 },
+      ]),
+    );
   },
   selectTwinCards(ctx: EnemyAIContext) {
     const dreamControlPercent = Math.max(0, Math.min(100, Math.floor(Number(ctx.flags.dreamControlPercent ?? 50))));
@@ -1671,20 +1703,18 @@ const 梦魔双子: EnemyDefinition = {
       ]);
     })();
 
-    const slot2Id = ctx.turn % 2 === 1
-      ? weightedRandom<string>([
-        { value: DREAM_DEMON_TWIN_CARD.MIOTO_BRATTY_TRAMPLE, weight: 50 },
-        { value: DREAM_DEMON_TWIN_CARD.MIOTO_PLAYFUL, weight: 50 },
-      ])
-      : weightedRandom<string>([
-        { value: DREAM_DEMON_TWIN_CARD.MIOTO_TAUNT, weight: 50 },
-        { value: DREAM_DEMON_TWIN_CARD.MIOTO_CLEANSE, weight: 50 },
-      ]);
+    const slot2Id =
+      ctx.turn % 2 === 1
+        ? weightedRandom<string>([
+            { value: DREAM_DEMON_TWIN_CARD.MIOTO_BRATTY_TRAMPLE, weight: 50 },
+            { value: DREAM_DEMON_TWIN_CARD.MIOTO_PLAYFUL, weight: 50 },
+          ])
+        : weightedRandom<string>([
+            { value: DREAM_DEMON_TWIN_CARD.MIOTO_TAUNT, weight: 50 },
+            { value: DREAM_DEMON_TWIN_CARD.MIOTO_CLEANSE, weight: 50 },
+          ]);
 
-    return [
-      pickCardById(ctx, slot1Id),
-      pickCardById(ctx, slot2Id),
-    ] as const;
+    return [pickCardById(ctx, slot1Id), pickCardById(ctx, slot2Id)] as const;
   },
 };
 
@@ -3237,19 +3267,25 @@ const 肉壁蠕虫: EnemyDefinition = {
     }
 
     if (!playerHasDevour) {
-      return pickCardById(ctx, weightedRandomWithoutImmediateRepeat(ctx, 'fleshWallWormPreDevourLastCardId', [
-        { value: FLESH_WALL_WORM_CARD.DRAG_INTO_WALL, weight: 40 },
-        { value: FLESH_WALL_WORM_CARD.SLIME_SPIT, weight: 30 },
-        { value: FLESH_WALL_WORM_CARD.FLESH_WALL_BREATH, weight: 30 },
-      ]));
+      return pickCardById(
+        ctx,
+        weightedRandomWithoutImmediateRepeat(ctx, 'fleshWallWormPreDevourLastCardId', [
+          { value: FLESH_WALL_WORM_CARD.DRAG_INTO_WALL, weight: 40 },
+          { value: FLESH_WALL_WORM_CARD.SLIME_SPIT, weight: 30 },
+          { value: FLESH_WALL_WORM_CARD.FLESH_WALL_BREATH, weight: 30 },
+        ]),
+      );
     }
 
-    return pickCardById(ctx, weightedRandomWithoutImmediateRepeat(ctx, 'fleshWallWormPostDevourLastCardId', [
-      { value: FLESH_WALL_WORM_CARD.LIMB_LOCK, weight: 20 },
-      { value: FLESH_WALL_WORM_CARD.CHAMBER_CONTRACTION, weight: 30 },
-      { value: FLESH_WALL_WORM_CARD.RHYTHMIC_PRESS, weight: 20 },
-      { value: FLESH_WALL_WORM_CARD.APHRODISIAC_SECRETION, weight: 30 },
-    ]));
+    return pickCardById(
+      ctx,
+      weightedRandomWithoutImmediateRepeat(ctx, 'fleshWallWormPostDevourLastCardId', [
+        { value: FLESH_WALL_WORM_CARD.LIMB_LOCK, weight: 20 },
+        { value: FLESH_WALL_WORM_CARD.CHAMBER_CONTRACTION, weight: 30 },
+        { value: FLESH_WALL_WORM_CARD.RHYTHMIC_PRESS, weight: 20 },
+        { value: FLESH_WALL_WORM_CARD.APHRODISIAC_SECRETION, weight: 30 },
+      ]),
+    );
   },
 };
 
@@ -3282,29 +3318,38 @@ const 虚空游光: EnemyDefinition = {
     }
 
     if (ctx.enemyStats.mp >= 3) {
-      return pickCardById(ctx, weightedRandom<string>([
-        { value: VOID_GLIMMER_CARD.FLUORESCENT_TETHER, weight: 20 },
-        { value: VOID_GLIMMER_CARD.SOFT_LIGHT, weight: 15 },
-        { value: VOID_GLIMMER_CARD.PULSE, weight: 20 },
-        { value: VOID_GLIMMER_CARD.SOUNDLESS, weight: 20 },
-        { value: VOID_GLIMMER_CARD.WANDER, weight: 25 },
-      ]));
+      return pickCardById(
+        ctx,
+        weightedRandom<string>([
+          { value: VOID_GLIMMER_CARD.FLUORESCENT_TETHER, weight: 20 },
+          { value: VOID_GLIMMER_CARD.SOFT_LIGHT, weight: 15 },
+          { value: VOID_GLIMMER_CARD.PULSE, weight: 20 },
+          { value: VOID_GLIMMER_CARD.SOUNDLESS, weight: 20 },
+          { value: VOID_GLIMMER_CARD.WANDER, weight: 25 },
+        ]),
+      );
     }
 
     if (ctx.enemyStats.mp >= 2) {
-      return pickCardById(ctx, weightedRandom<string>([
-        { value: VOID_GLIMMER_CARD.FLUORESCENT_TETHER, weight: 20 },
-        { value: VOID_GLIMMER_CARD.SOFT_LIGHT, weight: 30 },
-        { value: VOID_GLIMMER_CARD.SOUNDLESS, weight: 20 },
-        { value: VOID_GLIMMER_CARD.WANDER, weight: 30 },
-      ]));
+      return pickCardById(
+        ctx,
+        weightedRandom<string>([
+          { value: VOID_GLIMMER_CARD.FLUORESCENT_TETHER, weight: 20 },
+          { value: VOID_GLIMMER_CARD.SOFT_LIGHT, weight: 30 },
+          { value: VOID_GLIMMER_CARD.SOUNDLESS, weight: 20 },
+          { value: VOID_GLIMMER_CARD.WANDER, weight: 30 },
+        ]),
+      );
     }
 
-    return pickCardById(ctx, weightedRandom<string>([
-      { value: VOID_GLIMMER_CARD.FLUORESCENT_TETHER, weight: 40 },
-      { value: VOID_GLIMMER_CARD.SOUNDLESS, weight: 20 },
-      { value: VOID_GLIMMER_CARD.WANDER, weight: 40 },
-    ]));
+    return pickCardById(
+      ctx,
+      weightedRandom<string>([
+        { value: VOID_GLIMMER_CARD.FLUORESCENT_TETHER, weight: 40 },
+        { value: VOID_GLIMMER_CARD.SOUNDLESS, weight: 20 },
+        { value: VOID_GLIMMER_CARD.WANDER, weight: 40 },
+      ]),
+    );
   },
 };
 
@@ -3335,18 +3380,24 @@ const 面具侍从: EnemyDefinition = {
     }
 
     if (swarmStacks > 1) {
-      return pickCardById(ctx, weightedRandomWithoutImmediateRepeat(ctx, 'maskAttendantHighSwarmLastCardId', [
-        { value: MASK_ATTENDANT_CARD.GREETING_GUIDE, weight: 30 },
-        { value: MASK_ATTENDANT_CARD.DANCE, weight: 30 },
-        { value: MASK_ATTENDANT_CARD.FORCED_INVITATION, weight: 40 },
-      ]));
+      return pickCardById(
+        ctx,
+        weightedRandomWithoutImmediateRepeat(ctx, 'maskAttendantHighSwarmLastCardId', [
+          { value: MASK_ATTENDANT_CARD.GREETING_GUIDE, weight: 30 },
+          { value: MASK_ATTENDANT_CARD.DANCE, weight: 30 },
+          { value: MASK_ATTENDANT_CARD.FORCED_INVITATION, weight: 40 },
+        ]),
+      );
     }
 
-    return pickCardById(ctx, weightedRandomWithoutImmediateRepeat(ctx, 'maskAttendantLowSwarmLastCardId', [
-      { value: MASK_ATTENDANT_CARD.DANCE, weight: 20 },
-      { value: MASK_ATTENDANT_CARD.FACELESS_DEEP_KISS, weight: 40 },
-      { value: MASK_ATTENDANT_CARD.FACELESS_BIND, weight: 40 },
-    ]));
+    return pickCardById(
+      ctx,
+      weightedRandomWithoutImmediateRepeat(ctx, 'maskAttendantLowSwarmLastCardId', [
+        { value: MASK_ATTENDANT_CARD.DANCE, weight: 20 },
+        { value: MASK_ATTENDANT_CARD.FACELESS_DEEP_KISS, weight: 40 },
+        { value: MASK_ATTENDANT_CARD.FACELESS_BIND, weight: 40 },
+      ]),
+    );
   },
 };
 
@@ -3368,6 +3419,82 @@ const 镜像分身: EnemyDefinition = {
   selectCard(ctx: EnemyAIContext) {
     const pool = ctx.deck.length > 0 ? ctx.deck : getAllCards();
     return pickRandomCard(pool) ?? pool[0]!;
+  },
+};
+
+const 米拉: EnemyDefinition = {
+  name: '米拉',
+  stats: {
+    hp: 220,
+    maxHp: 220,
+    mp: 0,
+    minDice: 1,
+    maxDice: 1,
+    effects: [
+      { type: EffectType.DANCE_HALL, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MIMICKER, stacks: 1, polarity: 'trait' },
+      { type: EffectType.MIRROR_REGENERATION, stacks: 3, polarity: 'buff' },
+      { type: EffectType.MANA_SPRING, stacks: 2, polarity: 'buff' },
+    ],
+  },
+  deck: buildDeckById([
+    MIRA_CARD.MIRROR_REFRACTION,
+    MIRA_CARD.SHATTERED_MIRROR_WALTZ,
+    MIRA_CARD.LONELY_SOLO,
+    MIRA_CARD.MIRROR_CREATION,
+    MIRA_CARD.SHATTERED_MIRROR_CARNIVAL,
+    MIRA_CARD.INVITE_TO_DANCE,
+    MIRA_CARD.MIMICRY,
+    MIRA_CARD.ENDLESS_BALL,
+    MIRA_CARD.ACCORD,
+    MIRA_CARD.LONE_MIRROR_DANCE,
+  ]),
+  selectCard(ctx: EnemyAIContext) {
+    if (ctx.turn === 1 && ctx.flags.miraOpenedWithInvitation !== true) {
+      ctx.flags.miraOpenedWithInvitation = true;
+      return pickCardById(ctx, MIRA_CARD.INVITE_TO_DANCE);
+    }
+
+    const solitudeStacks = Math.max(
+      0,
+      Math.floor(ctx.enemyStats.effects.find(e => e.type === EffectType.SOLITUDE)?.stacks ?? 0),
+    );
+    const solitudeThreshold = Math.floor(solitudeStacks / 5);
+    const usedSolitudeThreshold = Math.max(0, Math.floor(Number(ctx.flags.miraSolitudeThresholdUsed ?? 0)));
+    if (solitudeThreshold > usedSolitudeThreshold) {
+      ctx.flags.miraSolitudeThresholdUsed = solitudeThreshold;
+      return pickCardById(ctx, MIRA_CARD.LONELY_SOLO);
+    }
+
+    const cardsByType = (type: CardType) =>
+      ctx.deck.filter(
+        card =>
+          card.type === type &&
+          card.id !== MIRA_CARD.LONELY_SOLO &&
+          (type !== CardType.MAGIC || card.manaCost <= ctx.enemyStats.mp),
+      );
+    const physicalPool = cardsByType(CardType.PHYSICAL);
+    const magicPool = cardsByType(CardType.MAGIC);
+    const functionPool = cardsByType(CardType.FUNCTION);
+    const dodgePool = cardsByType(CardType.DODGE);
+    const poolByType = new Map<CardType, CardData[]>([
+      [CardType.PHYSICAL, physicalPool],
+      [CardType.MAGIC, magicPool],
+      [CardType.FUNCTION, functionPool],
+      [CardType.DODGE, dodgePool],
+    ]);
+
+    let pool = ctx.previousPlayerCardType ? (poolByType.get(ctx.previousPlayerCardType) ?? []) : [];
+
+    if (pool.length === 0) {
+      const fallbackTypes = [CardType.PHYSICAL, CardType.MAGIC, CardType.FUNCTION, CardType.DODGE]
+        .filter(type => (poolByType.get(type)?.length ?? 0) > 0)
+        .map(type => ({ value: type, weight: 1 }));
+      const selectedType = fallbackTypes.length > 0 ? weightedRandom<CardType>(fallbackTypes) : CardType.PHYSICAL;
+      pool = poolByType.get(selectedType) ?? [];
+    }
+
+    return pickRandomCard(pool) ?? pickCardById(ctx, MIRA_CARD.MIRROR_REFRACTION);
   },
 };
 
@@ -3419,6 +3546,7 @@ const STATIC_ENEMY_REGISTRY: ReadonlyMap<string, EnemyDefinition> = new Map<stri
   [虚空游光.name, 虚空游光],
   [面具侍从.name, 面具侍从],
   [镜像分身.name, 镜像分身],
+  [米拉.name, 米拉],
   [普莉姆.name, 普莉姆],
   [宁芙.name, 宁芙],
   [温蒂尼.name, 温蒂尼],

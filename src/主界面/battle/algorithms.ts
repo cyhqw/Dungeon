@@ -40,6 +40,9 @@ export function calculateFinalPoint(ctx: PointCalculationContext): number {
   // Step 5-6: 全局加算修正
   point += relicModifiers.globalAddition;
 
+  const solitude = ctx.entityEffects.find(e => e.type === EffectType.SOLITUDE)?.stacks ?? 0;
+  if (card.id !== 'pass' && solitude > 0) point += solitude;
+
   return Math.max(0, Math.floor(point));
 }
 
@@ -142,6 +145,9 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
   const damageBoost = ctx.attackerEffects.find(e => e.type === EffectType.DAMAGE_BOOST)?.stacks ?? 0;
   if (damageBoost > 0) { damage += damageBoost; logs.push(`[增伤] +${damageBoost}`); }
 
+  const attackerCoDance = ctx.attackerEffects.find(e => e.type === EffectType.CO_DANCE)?.stacks ?? 0;
+  if (attackerCoDance > 0) { damage += attackerCoDance; logs.push(`[共舞] 造成伤害 +${attackerCoDance}`); }
+
   // 虚弱减算（仅直接攻击伤害链路）
   const weaken = ctx.attackerEffects.find(e => e.type === EffectType.WEAKEN)?.stacks ?? 0;
   if (weaken > 0) { damage -= weaken; logs.push(`[虚弱] -${weaken}`); }
@@ -174,6 +180,9 @@ export function calculateFinalDamage(ctx: DamageCalculationContext): { damage: n
     damage *= 1.25;
     logs.push('[虹膜：猩红] 受到伤害 x1.25');
   }
+
+  const defenderCoDance = ctx.defenderEffects.find(e => e.type === EffectType.CO_DANCE)?.stacks ?? 0;
+  if (defenderCoDance > 0) { damage += defenderCoDance; logs.push(`[共舞] 受到伤害 +${defenderCoDance}`); }
 
   if (isTrueDamage) {
     logs.push(`真实伤害，无视防御。`);
