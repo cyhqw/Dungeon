@@ -523,7 +523,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['passive'],
     stackable: false,
     maxStacks: 1,
-    description: '对方骰子点数UI显示会随机偏移',
+    description: '对方骰子点数UI显示会随机偏移-2~+2',
   },
   [EffectType.BLIND_ASH]: {
     type: EffectType.BLIND_ASH,
@@ -532,7 +532,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['passive'],
     stackable: false,
     maxStacks: 1,
-    description: '自身骰子点数UI显示会随机偏移',
+    description: '自身骰子点数UI显示会随机偏移-2~+2',
   },
   [EffectType.COGNITIVE_INTERFERENCE]: {
     type: EffectType.COGNITIVE_INTERFERENCE,
@@ -739,7 +739,7 @@ const EFFECT_REGISTRY_RAW: Record<EffectType, EffectDefinition> = {
     timings: ['onTurnStart'],
     stackable: true,
     maxStacks: 0,
-    description: '每回合开始时，若自身有元素debuff，则随机移除2层并回复2点生命',
+    description: '每回合开始时，若自身有元素debuff，则随机移除3层并回复3点生命',
   },
   [EffectType.ELEMENTAL_CORTEX]: {
     type: EffectType.ELEMENTAL_CORTEX,
@@ -1257,13 +1257,13 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
     result.logs.push(`[性兴奋] 触发：施加 ${orgasmStacks} 层疲劳。`);
   }
 
-  // 元素适应体：有元素debuff时，随机移除2层并回复2点生命
+  // 元素适应体：有元素debuff时，随机移除3层并回复3点生命
   const elementalAdaptationStacks = getEffectStacks(entity, EffectType.ELEMENTAL_ADAPTATION);
   if (elementalAdaptationStacks > 0) {
     const hasElementalDebuff = ELEMENTAL_DEBUFF_TYPES.some(type => getEffectStacks(entity, type) > 0);
     if (hasElementalDebuff) {
       const removedByType = new Map<EffectType, number>();
-      let remainToRemove = 2;
+      let remainToRemove = 3;
       while (remainToRemove > 0) {
         const available = ELEMENTAL_DEBUFF_TYPES.filter(type => getEffectStacks(entity, type) > 0);
         if (available.length === 0) break;
@@ -1273,14 +1273,14 @@ export function processOnTurnStart(entity: EntityStats): TurnStartResult {
         remainToRemove -= 1;
       }
 
-      result.hpChange += 2;
+      result.hpChange += 3;
       const removedSummary = [...removedByType.entries()]
         .map(([type, count]) => `${EFFECT_REGISTRY[type]?.name ?? type} -${count}`)
         .join('，');
       if (removedSummary.length > 0) {
-        result.logs.push(`[元素适应体] 随机移除元素debuff：${removedSummary}；回复 2 点生命。`);
+        result.logs.push(`[元素适应体] 随机移除元素debuff：${removedSummary}；回复 3 点生命。`);
       } else {
-        result.logs.push('[元素适应体] 回复 2 点生命。');
+        result.logs.push('[元素适应体] 回复 3 点生命。');
       }
     }
   }

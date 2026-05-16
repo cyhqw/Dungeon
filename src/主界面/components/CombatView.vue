@@ -1664,7 +1664,7 @@ const isEnemyDiceObscured = computed(() => (
   isUiMaskingActive.value
   && getEffectStacks(playerStats.value, ET.PEEP_FORBIDDEN) > 0
 ));
-const rerollUiNoise = () => Math.floor(Math.random() * 3) - 1;
+const rerollUiNoise = () => Math.floor(Math.random() * 5) - 2;
 const displayPlayerDice = computed(() => {
   const base = previewPlayerDice.value ?? combatState.value.playerBaseDice;
   if (!isPlayerDiceObscured.value) return base;

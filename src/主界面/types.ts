@@ -369,7 +369,7 @@ export enum EffectType {
   INK_CREATION = '笔墨造物',
   /** 读心 — 读取玩家三张手牌并据此决定出牌类型 */
   MIND_READ = '读心',
-  /** 元素适应体 — 每回合开始若有元素debuff，随机移除2层并回复2点生命 */
+  /** 元素适应体 — 每回合开始若有元素debuff，随机移除3层并回复3点生命 */
   ELEMENTAL_ADAPTATION = '元素适应体',
   /** 元素皮层 — 每回合开始若有元素debuff，随机移除1层并回复1点生命 */
   ELEMENTAL_CORTEX = '元素皮层',
