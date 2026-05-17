@@ -276,7 +276,7 @@ const 物质分解: ActiveSkillData = {
   manaCost: 0,
   Cooldown: 2,
   maxUses: 3,
-  description: '随机使一张非诅咒手牌在本场战斗中变为炼金废料，获得2金币，回复5生命。每场战斗限3次。',
+  description: '随机使一张非诅咒手牌在本场战斗中变为黑手印，获得1金币，回复5生命。每场战斗限3次。',
 };
 
 const 增值: ActiveSkillData = {

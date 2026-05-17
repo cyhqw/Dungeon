@@ -7448,17 +7448,15 @@ const generateShopProducts = () => {
   const pool = [...selectableRelicPool.value];
   const favorForCount = Math.max(0, muxinlanFavor.value);
   const targetCount =
-    favorForCount >= 190
+    favorForCount >= 80
       ? 8
-      : favorForCount >= 125
+      : favorForCount >= 55
         ? 7
-        : favorForCount >= 75
+        : favorForCount >= 30
           ? 6
-          : favorForCount >= 40
+          : favorForCount >= 10
             ? 5
-            : favorForCount >= 15
-              ? 4
-              : 3;
+            : 4;
   const count = Math.min(targetCount, pool.length);
   const usedNames = new Set<string>();
   const discountRate = shopDiscountRate.value;

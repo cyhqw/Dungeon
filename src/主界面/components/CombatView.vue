@@ -6193,18 +6193,18 @@ const useActiveSkill = async (idx: number) => {
         break;
       }
       const picked = candidates[Math.floor(Math.random() * candidates.length)]!;
-      const waste = getCardByName('炼金废料');
-      if (!waste) {
-        log(`<span class="text-gray-400">主动【${skill.name}】：未找到炼金废料。</span>`);
+      const curseCard = getCardByName('黑手印');
+      if (!curseCard) {
+        log(`<span class="text-gray-400">主动【${skill.name}】：未找到黑手印。</span>`);
         break;
       }
       const beforeName = picked.entry.name;
-      combatState.value.playerHand.splice(picked.handIdx, 1, cloneCardForBattle(waste));
-      pendingAlchemyGoldDelta.value += 2;
+      combatState.value.playerHand.splice(picked.handIdx, 1, cloneCardForBattle(curseCard));
+      pendingAlchemyGoldDelta.value += 1;
       const { healed } = healForSide('player', 5, {
         reason: `主动【${skill.name}】治疗`,
       });
-      log(`<span class="text-yellow-300">主动【${skill.name}】：将【${beforeName}】变为【炼金废料】，获得2金币，回复 ${healed} 点生命。</span>`);
+      log(`<span class="text-yellow-300">主动【${skill.name}】：将【${beforeName}】变为【黑手印】，获得1金币，回复 ${healed} 点生命。</span>`);
       break;
     }
     default:
