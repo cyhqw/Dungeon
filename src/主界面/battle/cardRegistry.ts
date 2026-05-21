@@ -3577,7 +3577,7 @@ const 摩尔_拟态: CardData = {
       effectType: EffectType.SCALE_POWDER,
       target: 'self',
       valueMode: 'fixed',
-      fixedValue: 2,
+      fixedValue: 3,
     },
     {
       triggers: ['on_turn_end_in_hand'],
@@ -3589,7 +3589,7 @@ const 摩尔_拟态: CardData = {
     },
   ],
   description:
-    '开局拟态。无效化对方卡牌并移除敌方1层【虚妄之拥】。回合结束仍保留在手中则使自身获得2层【鳞粉】与1层【虚弱】。',
+    '开局拟态。无效化对方卡牌并移除敌方1层【虚妄之拥】。回合结束仍保留在手中则使自身获得3层【鳞粉】与1层【虚弱】。',
 };
 
 /** 第一夜：将对方随机一张未打出的手牌转化为“陷入永恒的沉睡” */
