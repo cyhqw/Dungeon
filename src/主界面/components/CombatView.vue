@@ -826,6 +826,12 @@
         :style="{ left: `${effectTooltip.x}px`, top: `${effectTooltip.y}px` }"
       >
         <div class="effect-tooltip-name">{{ effectTooltip.name }}</div>
+        <div
+          v-if="effectTooltip.previewCard"
+          class="effect-tooltip-card-preview"
+        >
+          <DungeonCard :card="effectTooltip.previewCard" disabled />
+        </div>
         <div class="effect-tooltip-desc">{{ effectTooltip.description }}</div>
         <div v-if="effectTooltip.stacks > 1" class="effect-tooltip-stacks">层数: {{ effectTooltip.stacks }}</div>
       </div>
@@ -1459,6 +1465,7 @@ const effectTooltip = ref<{
   description: string;
   stacks: number;
   align: 'center' | 'right';
+  previewCard?: CardData;
 } | null>(null);
 
 type BattleSide = 'player' | 'enemy';
@@ -5492,6 +5499,9 @@ const showEffectTooltipForTarget = (target: HTMLElement, effect: EffectInstance,
     description: getEffectDescription(effect.type),
     stacks: effect.stacks,
     align,
+    previewCard: effect.type === ET.FANTASY_EMBRACE
+      ? getCardByName(MOORE_MIMIC_CARD_KEY) ?? undefined
+      : undefined,
   };
 };
 
@@ -8248,10 +8258,16 @@ const resolveCombat = async (
     if (card.id === 'enemy_moore_progressive_weaving') {
       const scalePowderStacks = Math.max(0, getEffectStacks(defender, ET.SCALE_POWDER));
       if (scalePowderStacks > 0) {
-        applyStatusEffectWithRelics(defenderSide, ET.SCALE_POWDER, scalePowderStacks, { source: card.id });
-        log(`<span class="text-fuchsia-300">${label}【${card.name}】将${defenderLabel}鳞粉翻倍（+${scalePowderStacks}）</span>`);
+        const targetStacks = Math.floor(scalePowderStacks * 1.5);
+        const addStacks = Math.max(0, targetStacks - scalePowderStacks);
+        if (addStacks > 0) {
+          applyStatusEffectWithRelics(defenderSide, ET.SCALE_POWDER, addStacks, { source: card.id });
+          log(`<span class="text-fuchsia-300">${label}【${card.name}】将${defenderLabel}鳞粉变为1.5倍（${scalePowderStacks} → ${targetStacks}）。</span>`);
+        } else {
+          log(`<span class="text-gray-400">${label}【${card.name}】${defenderLabel}鳞粉不足以增长（${scalePowderStacks} → ${targetStacks}）。</span>`);
+        }
       } else {
-        log(`<span class="text-gray-400">${label}【${card.name}】目标没有鳞粉可翻倍</span>`);
+        log(`<span class="text-gray-400">${label}【${card.name}】目标没有鳞粉可编织</span>`);
       }
       finalizeAndTrack();
       return;
@@ -10911,7 +10927,7 @@ watch(
 }
 
 .effect-tooltip {
-  max-width: 16rem;
+  max-width: 20rem;
   background: rgba(8, 10, 16, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 0.5rem;
@@ -10947,6 +10963,12 @@ watch(
   font-size: 10px;
   line-height: 1.2;
   font-weight: 700;
+}
+
+.effect-tooltip-card-preview {
+  width: 10rem;
+  height: 15rem;
+  margin: 0.5rem auto 0.6rem;
 }
 
 .poison-wave-bar {

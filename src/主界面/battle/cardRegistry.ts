@@ -3588,7 +3588,7 @@ const 摩尔_拟态: CardData = {
       fixedValue: 1,
     },
   ],
-  description: '无效对方卡牌并移除对方1层虚妄之拥；回合结束时若保留在手中，则受到2层鳞粉与1层虚弱；若本回合已打出另一张梦境，则不触发该保留效果',
+  description: '开局拟态。无效化对方卡牌并移除敌方1层【虚妄之拥】。回合结束仍保留在手中则使自身获得2层【鳞粉】与1层【虚弱】。',
 };
 
 /** 第一夜：将对方随机一张未打出的手牌转化为“陷入永恒的沉睡” */
@@ -3606,7 +3606,7 @@ const 摩尔_第一夜: CardData = {
   description: '将对方随机一张未打出的手牌转化为“陷入永恒的沉睡”',
 };
 
-/** 渐进式编织：消耗2，将对方身上的鳞粉翻倍，本场战斗中每打出1次，点数+1 */
+/** 渐进式编织：消耗2，将对方身上的鳞粉变为1.5倍（向下取整），本场战斗中每打出1次，点数+1 */
 const 摩尔_渐进式编织: CardData = {
   id: 'enemy_moore_progressive_weaving',
   name: '渐进式编织',
@@ -3618,7 +3618,7 @@ const 摩尔_渐进式编织: CardData = {
   damageLogic: { mode: 'fixed', value: 0 },
   traits: { combo: false, reroll: 'none', draw: false },
   cardEffects: [],
-  description: '消耗2，将对方身上的鳞粉翻倍，本场战斗中每打出1次，点数+1',
+  description: '消耗2，将对方身上的鳞粉变为1.5倍（向下取整），本场战斗中每打出1次，点数+1',
 };
 
 /** 思念回响：消耗3，点数*1.5，为对方施加0.2倍点数鳞粉 */
@@ -3679,13 +3679,7 @@ const 摩尔_手足无措: CardData = {
       target: 'self',
       valueMode: 'fixed',
       fixedValue: 0,
-      cleanseTypes: [
-        EffectType.BURN,
-        EffectType.COLD,
-        EffectType.POISON,
-        EffectType.BLEED,
-        EffectType.SHOCK,
-      ],
+      cleanseTypes: [EffectType.BURN, EffectType.COLD, EffectType.POISON, EffectType.BLEED, EffectType.SHOCK],
     },
     {
       triggers: ['on_no_direct_damage_taken_this_turn'],
@@ -3696,7 +3690,8 @@ const 摩尔_手足无措: CardData = {
       fixedValue: 5,
     },
   ],
-  description: '清空自身所有元素负面状态，移除对方所有鳞粉，移除玩家抽牌堆中的所有“梦境”。若本回合没有收到伤害，为自身施加5层易伤',
+  description:
+    '清空自身所有元素负面状态，移除对方所有鳞粉，移除玩家抽牌堆中的所有“梦境”。若本回合没有收到伤害，为自身施加5层易伤',
 };
 
 /** 笨拙：点数-2，闪避成功后造成1倍点数的伤害 */
