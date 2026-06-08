@@ -45,6 +45,7 @@ export const RACE_OPTIONS = [
   '天使裔',
   '妖精',
   '史莱姆娘',
+  '血灵',
   '自定义',
 ] as const;
 
@@ -105,9 +106,10 @@ export const ANUS_OPTIONS = [
 ] as const;
 
 const LIMITATION_BLOCK = [
-  '来自欲望之神的地下城封印限制了{{user}}的绝大部分力量，在这个领域内，她除了魔女专属的不死重构特性以外，总体实力与普通冒险者/魔法师无异。',
-  '每次死亡后，由于法则强制重构，{{user}}都会从地牢入口醒来，并且会失去本次探险收集的技能与圣遗物。',
-  '但是，与魔物们建立的羁绊、积攒的回忆以及战斗经验，将会随着灵魂跨越死亡被完整保留下来。',
+  '欲望之神的地下城封印困住了{{user}}，令其无法逃离——然而封印仅此而已。',
+  '{{user}}是血灵，血脉力量已踏入神明的门槛，封印的强度远不足以压制这种层级的力量。在这个领域内，{{user}}保有近乎完整的实力，楼层枷锁等针对超规格力量的限制机制同样对其无效。',
+  '每次死亡后，血脉之力会在"魔女的小窝"附近自动重构躯体。与普通冒险者不同，{{user}}的随身物品与装备不会因死亡而消失——血脉凝聚力将其一并收拢。',
+  '与魔物们建立的羁绊、积攒的回忆，以及所有战斗经验，将随着灵魂完整保留。',
 ] as const;
 
 const indentBlock = (value: string): string =>
@@ -198,8 +200,8 @@ export const buildOpeningBackstoryDraftPrompt = (
     '[背景设定]',
     normalizedBackgroundSetting || '未提供背景设定。',
     '',
-    '[魔女]',
-    normalizedWitchSetting || '未提供魔女条目。',
+    '[血灵]',
+    normalizedWitchSetting || '未提供血灵条目。',
     '',
     '[角色已填信息]',
     `种族：${profile.race.trim()}`,
@@ -231,3 +233,22 @@ export const buildOpeningBackstoryDraftPrompt = (
     '4. 篇幅控制在300到600字之间。',
   ].join('\n');
 };
+
+export interface OpeningPreset {
+  label: string;
+  data: Partial<OpeningInfoSubmission>;
+}
+
+export const OPENING_PRESETS: OpeningPreset[] = [
+  {
+    label: '血灵预设',
+    data: {
+      race: '血灵',
+      heightCm: 148,
+      bust: 'D',
+      weightType: '丰满',
+      appearance: '雪白短发，蓝色眼瞳，小巧黑色翅膀',
+      traits: '隐扶她体质：平时外观与普通女性完全相同，阴阜光滑无凸起；约10cm，偏粗，粉嫩可爱；插入后会根据对方身体和意识自然变长变粗，直到把小腹顶得微微鼓起；射精量非常大，认真释放时像小喷泉；可用意识控制伸出/收回/大小/射精量',
+    },
+  },
+];

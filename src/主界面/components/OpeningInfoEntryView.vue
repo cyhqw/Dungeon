@@ -48,6 +48,19 @@
                 <span class="step-chip__title">{{ stepInfo.title }}</span>
               </button>
             </div>
+
+            <div v-if="OPENING_PRESETS.length > 0" class="mt-4 flex flex-wrap gap-2 md:mt-0">
+              <button
+                v-for="preset in OPENING_PRESETS"
+                :key="preset.label"
+                type="button"
+                class="preset-chip"
+                :disabled="isBusy"
+                @click="applyPreset(preset)"
+              >
+                {{ preset.label }}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -318,6 +331,7 @@ import {
   BUST_OPTIONS,
   CHASTITY_OPTIONS,
   HIP_OPTIONS,
+  OPENING_PRESETS,
   RACE_OPTIONS,
   VAGINA_OPTIONS,
   WEIGHT_OPTIONS,
@@ -471,6 +485,32 @@ const handleGenerateBackstory = async () => {
   } finally {
     backgroundDraftLoading.value = false;
   }
+};
+
+const applyPreset = (preset: (typeof OPENING_PRESETS)[number]) => {
+  const d = preset.data;
+  if (d.race !== undefined) {
+    if ((RACE_OPTIONS as readonly string[]).includes(d.race)) {
+      selectedRace.value = d.race as (typeof RACE_OPTIONS)[number];
+    } else {
+      selectedRace.value = '自定义';
+      customRace.value = d.race;
+    }
+  }
+  if (d.name !== undefined) name.value = d.name;
+  if (d.age !== undefined) ageInput.value = String(d.age);
+  if (d.chastity !== undefined) chastity.value = d.chastity;
+  if (d.talent !== undefined) talent.value = d.talent;
+  if (d.appearance !== undefined) appearance.value = d.appearance;
+  if (d.traits !== undefined) traits.value = d.traits;
+  if (d.heightCm !== undefined) heightCm.value = d.heightCm;
+  if (d.weightType !== undefined) weightType.value = d.weightType as (typeof WEIGHT_OPTIONS)[number];
+  if (d.bust !== undefined) bust.value = d.bust as (typeof BUST_OPTIONS)[number];
+  if (d.hips !== undefined) hips.value = d.hips as (typeof HIP_OPTIONS)[number];
+  if (d.vagina !== undefined) vagina.value = d.vagina as (typeof VAGINA_OPTIONS)[number];
+  if (d.anus !== undefined) anus.value = d.anus as (typeof ANUS_OPTIONS)[number];
+  if (d.sensitivePoints !== undefined) sensitivePoints.value = d.sensitivePoints;
+  if (d.backstory !== undefined) backstory.value = d.backstory;
 };
 
 const handleSubmit = () => {
@@ -658,6 +698,33 @@ const handleSubmit = () => {
   background: rgba(40, 23, 12, 0.82);
   border-color: rgba(214, 175, 92, 0.65);
   color: rgba(255, 227, 172, 0.96);
+}
+
+.preset-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(173, 132, 71, 0.6);
+  background: rgba(40, 24, 13, 0.55);
+  padding: 0.45rem 1rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  color: #f0dbb5;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.preset-chip:hover:not(:disabled) {
+  border-color: rgba(224, 181, 96, 0.85);
+  background: rgba(80, 50, 18, 0.45);
+  transform: translateY(-1px);
+}
+
+.preset-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .step-fade-enter-active,
